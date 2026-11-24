@@ -14,6 +14,8 @@ The three piles:
 - **We do it together**: Claude does most of it and tells you what's left for you.
 - **Only I can do it**: things like calls, errands or appointments. Claude helps you prepare with a checklist or script.
 
+**[Try the demo](https://akhilshrwt3.github.io/Get-It-Done/)**: a read-only version with made-up sample tasks, so you can look around before making your own copy.
+
 ## A look at the app
 
 ![Get It Done: the greeting, add box, Up next, the three helpers and the three piles of task cards](docs/screenshot-board.png)
@@ -65,7 +67,7 @@ If you skip `mcp`, everything except Gmail drafts and Calendar reminders still w
 | `sample` | The Sorter, Doer and Checker. Each is a prompt to Claude that returns JSON. |
 | `mcp` | `Gmail → create_draft` when you approve an email, and `Google Calendar → create_event` for reminders and approved events. |
 
-Opened outside claude.ai, for example straight from GitHub, the page loads and shows a notice. It can't save tasks or run the helpers there.
+Opened outside claude.ai, for example on GitHub Pages, the page switches to **demo mode**: it shows made-up sample tasks you can open and read, but you can't add, edit or complete anything, and the helpers don't run. Nothing is saved and nothing reaches Gmail or Calendar.
 
 ## Safety
 
