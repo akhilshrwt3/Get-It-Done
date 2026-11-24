@@ -73,6 +73,10 @@ button{cursor:pointer}
 .dot{width:12px;height:12px;border-radius:50%;background:var(--faint);flex:none;border:2px solid var(--ink)}
 
 .notice{padding:14px 18px;border-radius:var(--r-sm);border:3px solid var(--ink);background:var(--yellow);font-size:16px;font-weight:600;box-shadow:var(--shadow-sm)}
+.notice a{color:var(--ink);font-weight:800}
+.demo .adder textarea:disabled{cursor:not-allowed}
+.demo .adder button:disabled{opacity:.5;cursor:not-allowed}
+.demo .go:disabled:hover,.demo .go:disabled:active{transform:none;box-shadow:var(--shadow)}
 
 /* Helpers */
 .crew{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
@@ -394,6 +398,10 @@ textarea.edit-field{min-height:220px;resize:vertical}
   let filter = "all";
   try { filter = localStorage.getItem("gid.filter") || "all"; } catch (e) {}
   let statusMsg = "";
+  // Demo mode: opened outside claude.ai (for example on GitHub Pages), the page shows sample tasks you can look at but not change.
+  let demo = false, toastLock = 0;
+  const REPO = "https://github.com/akhilshrwt3/Get-It-Done#make-your-own-copy";
+  function readOnly() { toast("This is a read-only demo. Make your own copy on claude.ai to add and change tasks.", true); toastLock = Date.now() + 1500; }
   const helpers = { sorter: new Map(), doer: new Map(), checker: new Map() };
   const lastLine = { sorter: "Waiting for new tasks", doer: "Waiting for sorted tasks", checker: "Nothing to check yet" };
 
@@ -418,7 +426,9 @@ textarea.edit-field{min-height:220px;resize:vertical}
     return { v: hh + "h " + String(mm).padStart(2, "0"), u: "min" };
   }
   const uid = () => "t" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-  function toast(msg) {
+  function toast(msg, force) {
+    // In demo mode the read-only message wins over any toast fired right after it.
+    if (!force && Date.now() < toastLock) return;
     const t = $("toast"); t.textContent = msg; t.classList.add("show");
     clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("show"), 3200);
   }
@@ -426,6 +436,7 @@ textarea.edit-field{min-height:220px;resize:vertical}
 
   /* ---------- Saving ---------- */
   function save(t) {
+    if (demo) { readOnly(); render(true); return; }
     tasks.set(t.id, t);
     render();
     if (!col) return;
@@ -438,6 +449,7 @@ textarea.edit-field{min-height:220px;resize:vertical}
     writes.set(t.id, p);
   }
   function remove(t) {
+    if (demo) { readOnly(); return; }
     tasks.delete(t.id); render();
     if (!col) return;
     const prev = writes.get(t.id) || Promise.resolve();
@@ -841,7 +853,7 @@ If pass is false, note says in one or two sentences what to fix.`;
     if (editing === t.id && !isBusy) return editForm(t);
     const kids = [];
     if (t.text && t.text !== t.title) kids.push(h("p", { class: "wrote", text: "You wrote: " + t.text }));
-    if (!isBusy && t.pile) kids.push(optionsRow(t));
+    if (!isBusy && t.pile && !demo) kids.push(optionsRow(t));
     if (t.note) kids.push(h("p", { class: "note", text: t.note }));
     if (t.reminderNote && !t.reminderDone) kids.push(h("p", { class: "note", text: "Reminder not added: " + t.reminderNote }));
     const k = kinds(t); if (k) kids.push(k);
@@ -851,13 +863,15 @@ If pass is false, note says in one or two sentences what to fix.`;
       kids.push(h("div", { class: "block" }, h("span", { class: "eyebrow", text: "What the agent made" }), h("pre", { class: "result", text: t.result }), h("div", { class: "btns" }, copyBtn)));
     }
     if (t.yourPart) kids.push(h("div", { class: "block" }, h("span", { class: "eyebrow", text: "Your part" }), h("p", { class: "yours", text: t.yourPart })));
-    if (t.result) {
+    if (t.result && demo) kids.push(h("p", { class: "minrow", text: "Time saved: " + (t.minutes || 0) + " min" }));
+    else if (t.result) {
       const inp = h("input", { id: "min-" + t.id, class: "min-input hold", type: "number", min: "0", max: "600", step: "5", value: String(t.minutes || 0), "aria-label": "Minutes saved" });
       inp.addEventListener("change", () => { t.minutes = Math.max(0, Math.min(600, Math.round(Number(inp.value) || 0))); t.minutesEdited = true; save(t); toast("Time saved updated."); });
       inp.addEventListener("blur", () => { if (pendingRender) render(); });
       kids.push(h("label", { class: "minrow", for: "min-" + t.id }, "Time saved", inp, "min"));
     }
     const btns = [];
+    if (demo) { btns.push(...links(t)); if (btns.length) kids.push(h("div", { class: "btns" }, btns)); return h("div", { class: "detail" }, kids); }
     if (!isBusy && t.status === "needs_ok") btns.push(h("button", { class: "btn primary", type: "button", onclick: e => approve(t, e.currentTarget), text: approveLabel(t) }));
     btns.push(...links(t));
     if (t.time && t.due && !t.reminderDone && t.status !== "complete" && !remBusy.has(t.id) && !remPast(t))
@@ -925,19 +939,19 @@ If pass is false, note says in one or two sentences what to fix.`;
   function card(t, idx, list) {
     const isOpen = open === t.id, isBusy = busy.has(t.id), isDone = t.status === "complete";
     const isEditing = cardEdit === t.id && !isBusy;
-    const tick = h("button", { class: "tick", type: "button", disabled: isBusy,
+    const tick = h("button", { class: "tick", type: "button", disabled: isBusy || demo,
       "aria-label": (isDone ? "Put back on the list: " : "Mark complete: ") + (t.title || t.text), text: isDone ? "✓" : "",
       onclick: () => (isDone ? reopen(t) : markComplete(t)) });
     if (isDone) tick.classList.add("on");
     const acts = [];
-    if (!isDone && list) {
+    if (!isDone && list && !demo) {
       const canUp = idx > 0, canDown = idx < list.length - 1 && list[idx + 1].status !== "complete";
       acts.push(h("span", { class: "mvs" },
         h("button", { id: "mvu-" + t.id, class: "btn mv", type: "button", disabled: !canUp, "aria-label": "Move up: " + (t.title || t.text), text: "↑", onclick: () => move(t, -1) }),
         h("button", { id: "mvd-" + t.id, class: "btn mv", type: "button", disabled: !canDown, "aria-label": "Move down: " + (t.title || t.text), text: "↓", onclick: () => move(t, 1) })));
     }
     if (!isDone && t.reminderUrl) acts.push(h("a", { class: "btn", href: t.reminderUrl, target: "_blank", rel: "noopener", text: "Open reminder" }));
-    if (!isBusy) acts.push(h("button", { class: "btn", type: "button", "aria-expanded": String(isEditing), text: isEditing ? "Close" : "Edit",
+    if (!isBusy && !demo) acts.push(h("button", { class: "btn", type: "button", "aria-expanded": String(isEditing), text: isEditing ? "Close" : "Edit",
       onclick: () => { cardEdit = isEditing ? null : t.id; ledgerEdit = null; render(true); if (!isEditing) document.getElementById("ce-title-" + t.id)?.focus(); } }));
     return h("article", { class: "task s-" + t.status + (isOpen ? " open" : "") },
       h("div", { class: "card-top" }, tick, h("button", { class: "task-head", type: "button", "aria-expanded": String(isOpen), onclick: () => { open = isOpen ? null : t.id; armed = null; editing = null; render(true); } },
@@ -1290,7 +1304,7 @@ If pass is false, note says in one or two sentences what to fix.`;
   function okItem(t, approved) {
     const copyBtn = h("button", { class: "btn", type: "button", text: "Copy" });
     copyBtn.addEventListener("click", () => copy(t.result, copyBtn));
-    const btns = approved
+    const btns = demo ? [...links(t), copyBtn] : approved
       ? [...links(t), copyBtn, h("button", { class: "btn primary", type: "button", onclick: () => markComplete(t), text: "Mark sent" })]
       : [h("button", { class: "btn primary", type: "button", onclick: e => approve(t, e.currentTarget), text: approveLabel(t) }), copyBtn];
     btns.push(h("button", { class: "btn", type: "button", onclick: () => showTask(t.id), text: "Open" }));
@@ -1327,6 +1341,85 @@ If pass is false, note says in one or two sentences what to fix.`;
     getItDone();
   });
 
+  /* ---------- Demo mode ---------- */
+  // Made-up sample tasks, with dates set relative to today so the board, Up next and history always look current.
+  function demoTasks() {
+    const day = n => { const d = new Date(); d.setDate(d.getDate() + n); return ymd(d); };
+    const at = (n, hh, mm) => { const d = new Date(); d.setDate(d.getDate() + n); d.setHours(hh, mm || 0, 0, 0); return d.getTime(); };
+    const base = { text: "", result: "", yourPart: "", needsOk: false, okLabel: "", minutes: 0, note: "", dueAuto: false };
+    const list = [
+      { title: "Email Sam about moving the team sync to Thursday", pile: "together", area: "work", status: "needs_ok", due: day(0), minutes: 10,
+        text: "email sam to move team sync to thursday", needsOk: true, okLabel: "Email to Sam: team sync on Thursday",
+        result: "Hi Sam,\n\nCould we move this week's team sync from Wednesday to Thursday at the same time? A client call landed on Wednesday morning and I'd rather not rush either one.\n\nIf Thursday doesn't work for you, I'm free Friday before noon too.\n\nThanks,\nAlex",
+        email: { to: ["sam@example.com"], subject: "Moving our team sync to Thursday", body: "" },
+        yourPart: "Check it reads right, then approve it to save it as a Gmail draft and send it yourself." },
+      { title: "Book dinner with Priya next Friday", pile: "together", area: "family", status: "needs_ok", due: day(7), minutes: 5,
+        text: "dinner with priya next friday 7:30", needsOk: true, okLabel: "Calendar event: dinner with Priya",
+        result: "Dinner with Priya, next Friday from 19:30 to 21:30 at Luca's on Market Street. A calendar event with no invites is ready to add.",
+        event: { title: "Dinner with Priya", date: day(7), start: "19:30", end: "21:30", location: "Luca's, Market Street", notes: "Table for two. Call the restaurant to confirm." },
+        yourPart: "Call Luca's to book the table." },
+      { title: "Plan meals for the week", pile: "agent", area: "home", status: "done", due: day(0), minutes: 25, finishedAt: at(0, 8, 40),
+        text: "meal plan for the week, something quick on weeknights",
+        result: "Mon: Lemon chicken traybake with potatoes and green beans (35 min)\nTue: Veggie fried rice with eggs (20 min)\nWed: Pasta with tomato, spinach and ricotta (20 min)\nThu: Fish tacos with slaw (25 min)\nFri: Homemade pizza night\nSat: Chilli in the slow cooker, extra for Sunday\nSun: Leftover chilli with baked potatoes\n\nShopping list: chicken thighs, potatoes, green beans, lemons, eggs, frozen peas, rice, pasta, spinach, ricotta, white fish, tortillas, cabbage, pizza bases, mozzarella, minced beef, kidney beans, tinned tomatoes." },
+      { title: "Write a birthday message for Grandma", pile: "together", area: "family", status: "your_turn", due: day(2), minutes: 10,
+        text: "birthday card for grandma, she turns 80",
+        result: "Happy 80th birthday, Grandma! Thank you for every Sunday lunch, every story and every time you saved me the last slice of cake. Here's to many more years of your laugh filling the room. With all my love.",
+        yourPart: "Write it into the card, sign it and post it by Thursday." },
+      { title: "Call the dentist to book a check-up", pile: "me", area: "health", status: "your_turn", due: day(1), time: "10:00", minutes: 5,
+        text: "call dentist tomorrow at 10 for a check-up", reminderDone: true,
+        result: "Call script:\n1. \"Hi, I'd like to book a routine check-up and clean.\"\n2. Give your name and date of birth.\n3. Ask for a weekday morning in the next two weeks.\n4. Ask whether your insurance covers the clean.\n\nHave ready: your calendar, insurance card.",
+        yourPart: "Make the call. It should take about five minutes." },
+      { title: "Send the car insurance documents", pile: "me", area: "money", status: "your_turn", due: day(-1), minutes: 10,
+        text: "send car insurance docs",
+        result: "Checklist:\n- Scan the signed renewal form\n- Photo of your driving licence, both sides\n- Proof of address from the last three months\n- Upload all three on the insurer's website under My documents",
+        yourPart: "Find the papers and upload them." },
+      { title: "Pay the electricity bill", pile: "me", area: "money", status: "your_turn", due: day(3), minutes: 5,
+        text: "pay electricity bill by the end of the week",
+        result: "Checklist:\n- Log in to the energy supplier's site\n- Check the meter reading matches the bill\n- Pay by card or set up a direct debit so it's automatic next time",
+        yourPart: "Pay it yourself. The agent never pays anything." },
+      { title: "Find a weekend for the family trip", pile: "together", area: "family", status: "flagged", due: day(5),
+        text: "find a weekend for the family trip",
+        note: "The Checker wasn't happy: It doesn't know whose calendars to compare. Add who's coming and press Redo." },
+      { title: "Reply to the landlord about the boiler", pile: "together", area: "home", status: "approved", due: day(0), minutes: 10,
+        text: "reply to landlord about boiler repair", needsOk: true, okLabel: "Email to the landlord", gmailDone: true,
+        result: "Hi Jordan,\n\nThanks for sending someone about the boiler. Tuesday between 9 and 12 works for me. I'll make sure someone is home.\n\nBest,\nAlex",
+        email: { to: ["landlord@example.com"], subject: "Boiler repair visit", body: "" } },
+      { title: "Summarize the Q3 budget notes", pile: "agent", area: "work", status: "complete", due: day(-1), minutes: 30, completedAt: at(-1, 15, 10),
+        text: "summarize the q3 budget notes for the team",
+        result: "Q3 budget in short:\n- Spending came in 4% under plan.\n- Travel was the biggest saving.\n- Software costs rose with two new tools.\n- Proposal: move the travel savings to Q4 training." },
+      { title: "Pick up the dry cleaning", pile: "me", area: "home", status: "complete", due: day(-2), minutes: 0, completedAt: at(-2, 18, 0),
+        text: "pick up dry cleaning", result: "Ticket number is on the fridge. The shop closes at 18:30.", yourPart: "Pick it up on the way home." },
+      { title: "Draft a packing list for the beach weekend", pile: "agent", area: "family", status: "complete", due: day(0), minutes: 15, completedAt: at(0, 9, 30),
+        text: "packing list for the beach weekend",
+        result: "Clothes: swimsuits, two outfits each, a warm layer for evenings\nBeach: towels, sun cream, hats, umbrella, cool box\nOther: chargers, snacks for the drive, first-aid kit" },
+      { title: "Book the car service", pile: "together", area: "money", status: "complete", due: day(-3), minutes: 15, completedAt: at(-3, 12, 0),
+        text: "book car service", result: "Three garages within 5 km had a slot next week. The cheapest is 129 for a standard service.", yourPart: "Booked it online." }
+    ];
+    return list.map((t, i) => {
+      const o = { ...base, ...t, id: "demo" + (i + 1), num: i + 1, created: at(-3 + Math.min(i % 4, 3), 9) };
+      if (o.text === "") o.text = o.title;
+      if (o.email) o.email.body = o.result;
+      if (o.status === "complete") o.prevStatus = o.pile === "agent" ? "done" : "your_turn";
+      if (o.completedAt && o.created > o.completedAt) o.created = o.completedAt - 36e5;
+      return o;
+    });
+  }
+  function startDemo() {
+    demo = true;
+    document.body.classList.add("demo");
+    for (const t of demoTasks()) tasks.set(t.id, t);
+    input.disabled = true;
+    input.placeholder = "This is a demo with made-up tasks, so adding is off.";
+    for (const b of document.querySelectorAll("#composer button")) b.disabled = true;
+    statusMsg = "Demo mode: look around, nothing here can be changed.";
+    lastLine.sorter = "Sorted 13 sample tasks"; lastLine.doer = "Finished the sample work"; lastLine.checker = "Checked every sample task";
+    const n = $("notice");
+    n.replaceChildren("You're looking at a read-only demo with made-up tasks. To add your own and let the helpers work, ",
+      h("a", { href: REPO, target: "_blank", rel: "noopener", text: "make your own copy on claude.ai" }), ".");
+    n.hidden = false;
+    render(true);
+  }
+
   /* ---------- Start ---------- */
   renderGreeting(""); render();
   // Keep Up next current as the clock moves past a task's time.
@@ -1335,7 +1428,7 @@ If pass is false, note says in one or two sentences what to fix.`;
   document.addEventListener("visibilitychange", () => { if (!document.hidden) { renderGreeting(); render(); } });
   (async () => {
     const C = window.claude;
-    if (!C || !C.use) { notice("Open this page on claude.ai to save tasks and let the helpers work."); return; }
+    if (!C || !C.use) { startDemo(); return; }
     const [dbNs, userNs, s, m] = await Promise.all([C.use("db"), C.use("user"), C.use("sample"), C.use("mcp")]);
     sample = s; mcp = m;
     if (userNs) { try { const n = await userNs.name(); renderGreeting((n || "").trim().split(/\s+/)[0]); } catch (e) {} }
