@@ -14,6 +14,14 @@ The three piles:
 - **We do it together**: Claude does most of it and tells you what's left for you.
 - **Only I can do it**: things like calls, errands or appointments. Claude helps you prepare with a checklist or script.
 
+## A look at the app
+
+![Get It Done: the greeting, add box, Up next, the three helpers and the three piles of task cards](docs/screenshot-board.png)
+
+![Waiting for your OK with a Gmail draft, and What you got done with totals, the all-vs-completed chart and the day-by-day list](docs/screenshot-history.png)
+
+*Screenshots use made-up example tasks.*
+
 ## Features
 
 - **Paste a whole list.** Each line becomes its own task.
