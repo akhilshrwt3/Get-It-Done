@@ -1,0 +1,8 @@
+{
+  "name": "get-it-done",
+  "private": true,
+  "description": "Personal to-do app that runs as a Claude artifact. index.html is the whole app; this file only runs the tests.",
+  "scripts": {
+    "test": "node --test"
+  }
+}

@@ -365,8 +365,95 @@ textarea.edit-field{min-height:220px;resize:vertical}
 </div>
 <div class="toast" id="toast" role="status"></div>
 
+<script id="gid-logic">
+/* ---------- Task logic (pure, no page access) ----------
+   Dates, Up next ranking and the history rollover. Everything takes "now" as an argument
+   so tests/logic.test.js can run it in Node with a fixed clock. Keep this block free of DOM calls. */
+(function (root) {
+  const two = n => String(n).padStart(2, "0");
+  const ymd = d => d.getFullYear() + "-" + two(d.getMonth() + 1) + "-" + two(d.getDate());
+  const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+  const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+  // Whole days from today (local midnight) to a YYYY-MM-DD date. null when there's no valid date.
+  function dueDays(due, now = new Date()) {
+    if (!due || !DATE_RE.test(due)) return null;
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return Math.round((new Date(due + "T00:00:00") - today) / 864e5);
+  }
+  const plural = (n, w) => n + " " + w + (n === 1 ? "" : "s");
+  function dueText(due, now = new Date()) {
+    const d = dueDays(due, now); if (d == null) return "";
+    if (d < 0) return "Overdue by " + plural(-d, "day");
+    if (d === 0) return "Due today";
+    if (d === 1) return "Due tomorrow";
+    const date = new Date(due + "T00:00:00");
+    return "Due " + (d < 7 ? date.toLocaleDateString(undefined, { weekday: "long" }) : date.toLocaleDateString(undefined, { day: "numeric", month: "short" }));
+  }
+
+  // Lines typed or pasted into the add box, without list markers.
+  function splitLines(raw) {
+    return raw.split(/\n+/).map(s => s.replace(/^[-*•\d.)\s]+/, "").trim()).filter(Boolean);
+  }
+  // Takes the Sorter's due date and time when they're well formed. A written deadline replaces
+  // the automatic "due the day you added it", but never one the person set.
+  function applySorterDates(target, row) {
+    if ((!target.due || target.dueAuto) && DATE_RE.test(String(row.due || ""))) { target.due = String(row.due); target.dueAuto = false; }
+    if (!target.time && TIME_RE.test(String(row.time || ""))) target.time = String(row.time);
+    return target;
+  }
+  // Older saved tasks have no due date: they're due the day they were added.
+  function withDefaultDue(d) {
+    if (!d.due && d.created) { d.due = ymd(new Date(d.created)); d.dueAuto = true; }
+    return d;
+  }
+
+  /* Up next */
+  const NEXT_RANK = { needs_ok: 0, flagged: 1, your_turn: 2, approved: 3, done: 4, queued: 5 };
+  // Soonest day first; on that day timed tasks lead, earliest time first, and one whose time has passed
+  // stays up next until you complete it. Then what needs you most, then your arrow order, then the task added first.
+  function nextKey(t, now = new Date()) {
+    const d = dueDays(t.due, now), urgent = d != null && d <= 1;
+    const mins = t.time ? Number(t.time.slice(0, 2)) * 60 + Number(t.time.slice(3, 5)) : null;
+    const timed = urgent && mins != null;
+    return [urgent ? 0 : 1, urgent ? d : 0, timed ? 0 : 1, timed ? mins : 0, NEXT_RANK[t.status],
+      d == null ? 9999 : d, t.order ?? 1e9, t.num || 0];
+  }
+  function pickNext(list, busy, now = new Date()) {
+    const keyed = [...list].filter(t => t.status in NEXT_RANK && !(busy && busy.has(t.id))).map(t => [nextKey(t, now), t]);
+    keyed.sort(([x], [y]) => { for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return x[i] - y[i]; return 0; });
+    return keyed.length ? keyed[0][1] : null;
+  }
+
+  /* History and rollover */
+  // A task counts as done only once you tick it complete, the same rule as the Done list.
+  const doneTime = t => t.completedAt || t.finishedAt || t.created || 0;
+  function periodStart(p, now = new Date()) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if (p === "week") d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    if (p === "month") d.setDate(1);
+    if (p === "year") { d.setMonth(0); d.setDate(1); }
+    return d;
+  }
+  // A finished task belongs to the day you finished it. A task that isn't done yet belongs to today,
+  // so anything left over from earlier days rolls forward until you tick it off.
+  const dayOf = (t, nowTs) => (t.status === "complete" ? doneTime(t) : nowTs);
+  // The tasks shown for a range: done (completed in it, newest first) and all (done plus everything unfinished).
+  function historySets(list, start, nowTs) {
+    const arr = [...list];
+    const done = arr.filter(t => t.status === "complete" && doneTime(t) >= start).sort((a, b) => doneTime(b) - doneTime(a));
+    const all = arr.filter(t => dayOf(t, nowTs) >= start);
+    return { done, all };
+  }
+
+  root.GidLogic = { two, ymd, DATE_RE, TIME_RE, dueDays, dueText, splitLines, applySorterDates, withDefaultDue,
+    NEXT_RANK, nextKey, pickNext, doneTime, periodStart, dayOf, historySets };
+})(typeof window !== "undefined" ? window : globalThis);
+</script>
 <script>
 (() => {
+  const { two, ymd, DATE_RE, TIME_RE, dueDays, dueText, splitLines, applySorterDates, withDefaultDue,
+    doneTime, periodStart, dayOf, historySets } = window.GidLogic;
   const AREAS = ["work", "home", "family", "money", "health"];
   const PILES = {
     agent:    { name: "Agent does it",   hint: "Finished for you, start to end" },
@@ -465,7 +552,7 @@ textarea.edit-field{min-height:220px;resize:vertical}
   // The status line under the add box shows the latest message from the helpers.
   function say(role, text) { statusMsg = text; renderTop(); if (role === "bot") toast(text); }
   function addFromText(raw) {
-    const lines = raw.split(/\n+/).map(s => s.replace(/^[-*•\d.)\s]+/, "").trim()).filter(Boolean);
+    const lines = splitLines(raw);
     if (!lines.length) return;
     statusMsg = "";
     for (const line of lines) save(newTask(line.slice(0, 400)));
@@ -521,8 +608,7 @@ Reply with only a JSON array of objects like {"entry": "<id>", "title": "...", "
           target.title = cleanText(r.title, 80) || t.text;
           target.pile = PILES[r.pile] ? r.pile : "together";
           target.area = AREAS.includes(r.area) ? r.area : "home";
-          if ((!target.due || target.dueAuto) && DATE_RE.test(String(r.due || ""))) { target.due = String(r.due); target.dueAuto = false; }
-          if (!target.time && TIME_RE.test(String(r.time || ""))) target.time = String(r.time);
+          applySorterDates(target, r);
           target.status = "queued";
           save(target); made++;
         });
@@ -578,8 +664,6 @@ ok_label: a 2 to 5 word name for the draft, like "Email to landlord", or "" if n
   }
 
   /* ---------- Gmail + Calendar ---------- */
-  const two = n => String(n).padStart(2, "0");
-  const ymd = d => d.getFullYear() + "-" + two(d.getMonth() + 1) + "-" + two(d.getDate());
   function todayText() {
     const d = new Date();
     let tz = ""; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (e) {}
@@ -979,15 +1063,6 @@ If pass is false, note says in one or two sentences what to fix.`;
   let period = "week";
   try { period = localStorage.getItem("gid.period") || "week"; } catch (e) {}
   const PERIODS = [["day", "Today"], ["week", "This week"], ["month", "This month"], ["year", "This year"]];
-  // A task counts as done only once you tick it complete, the same rule as the Done list.
-  const doneTime = t => t.completedAt || t.finishedAt || t.created || 0;
-  function periodStart(p) {
-    const n = new Date(), d = new Date(n.getFullYear(), n.getMonth(), n.getDate());
-    if (p === "week") d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
-    if (p === "month") d.setDate(1);
-    if (p === "year") { d.setMonth(0); d.setDate(1); }
-    return d;
-  }
   function buckets(p, start) {
     const out = [];
     if (p === "day") for (let i = 0; i < 24; i += 3) out.push({ label: two(i) + ":00", from: new Date(start.getFullYear(), start.getMonth(), start.getDate(), i), to: new Date(start.getFullYear(), start.getMonth(), start.getDate(), i + 3) });
@@ -1000,13 +1075,9 @@ If pass is false, note says in one or two sentences what to fix.`;
     $("periods").replaceChildren(...PERIODS.map(([k, label]) => h("button", { class: "chip", type: "button", "aria-pressed": String(period === k),
       onclick: () => { period = k; try { localStorage.setItem("gid.period", k); } catch (e) {} renderHistory(); } }, label)));
     const start = periodStart(period).getTime();
-    const done = [...tasks.values()].filter(t => t.status === "complete" && doneTime(t) >= start).sort((a, b) => doneTime(b) - doneTime(a));
-    // All tasks for this range: added in it, or finished in it.
-    // A finished task belongs to the day you finished it. A task that isn't done yet belongs to today,
-    // so anything left over from earlier days rolls forward until you tick it off.
+    // Unfinished tasks belong to today, so anything left over from earlier days rolls forward (see GidLogic.dayOf).
     const nowTs = Date.now();
-    const dayOf = t => (t.status === "complete" ? doneTime(t) : nowTs);
-    const allIn = [...tasks.values()].filter(t => dayOf(t) >= start);
+    const { done, all: allIn } = historySets(tasks.values(), start, nowTs);
     const pct = allIn.length ? Math.round(done.length / allIn.length * 100) : 0, left = allIn.length - done.length;
     const mins = done.reduce((s, t) => s + (t.minutes || 0), 0), f = fmt(mins);
     const byPile = k => done.filter(t => t.pile === k).length;
@@ -1027,7 +1098,7 @@ If pass is false, note says in one or two sentences what to fix.`;
     const inB = (ts, b) => ts >= b.from.getTime() && ts < b.to.getTime();
     for (const b of bs) {
       b.n = done.filter(t => inB(doneTime(t), b)).length;
-      b.all = allIn.filter(t => inB(dayOf(t), b)).length;
+      b.all = allIn.filter(t => inB(dayOf(t, nowTs), b)).length;
     }
     const max = Math.max(1, ...bs.map(b => b.all));
     const ht = n => (n ? Math.max(4, Math.round(n / max * 82)) : 3) + "%";
@@ -1043,7 +1114,7 @@ If pass is false, note says in one or two sentences what to fix.`;
     const pos = new Map(); let k = 0;
     for (const key of Object.keys(PILES)) for (const x of pileSorted(key)) pos.set(x.id, k++);
     for (const t of [...allIn].sort((a, b) => (pos.get(a.id) ?? 1e9) - (pos.get(b.id) ?? 1e9) || a.num - b.num)) {
-      const d = new Date(dayOf(t));
+      const d = new Date(dayOf(t, nowTs));
       const isToday = ymd(d) === ymd(new Date(nowTs));
       const key = period === "year" ? d.toLocaleDateString(undefined, { month: "long", year: "numeric" })
         : (isToday ? "Today · " : "") + d.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
@@ -1061,7 +1132,6 @@ If pass is false, note says in one or two sentences what to fix.`;
   }
   /* ---------- Calendar reminders for tasks with a time ---------- */
   // Any task with a day and a clock time gets its own event in Google Calendar, with no guests.
-  const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
   const remBusy = new Set(), remFailed = new Set();
   const STOP_CODES = new Set(["needs_reauth", "server_not_connected", "server_not_found", "not_granted", "consent_required", "approval_required", "rate_limited"]);
   const remPast = t => new Date(t.due + "T" + t.time + ":00").getTime() < Date.now();
@@ -1111,26 +1181,11 @@ If pass is false, note says in one or two sentences what to fix.`;
   }
 
   /* ---------- Due dates + up next ---------- */
-  const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-  function dueDays(due) {
-    if (!due || !DATE_RE.test(due)) return null;
-    const n = new Date(), today = new Date(n.getFullYear(), n.getMonth(), n.getDate());
-    return Math.round((new Date(due + "T00:00:00") - today) / 864e5);
-  }
-  function dueText(due) {
-    const d = dueDays(due); if (d == null) return "";
-    if (d < 0) return "Overdue by " + plural(-d, "day");
-    if (d === 0) return "Due today";
-    if (d === 1) return "Due tomorrow";
-    const date = new Date(due + "T00:00:00");
-    return "Due " + (d < 7 ? date.toLocaleDateString(undefined, { weekday: "long" }) : date.toLocaleDateString(undefined, { day: "numeric", month: "short" }));
-  }
   function dueChip(t) {
     const d = dueDays(t.due);
     if (d == null || t.status === "complete") return null;
     return h("span", { class: "due" + (d < 0 ? " late" : d <= 1 ? " soon" : ""), text: dueText(t.due) + (t.time ? ", " + t.time : "") });
   }
-  const NEXT_RANK = { needs_ok: 0, flagged: 1, your_turn: 2, approved: 3, done: 4, queued: 5 };
   const NEXT_WHY = {
     needs_ok: "Waiting for your OK before it goes anywhere.",
     flagged: "The Checker wants you to take a look.",
@@ -1139,21 +1194,7 @@ If pass is false, note says in one or two sentences what to fix.`;
     done: "Finished by the agent. Read it and mark it complete.",
     queued: "Press Get it Done to start it."
   };
-  function pickNext() {
-    // Soonest day first; on that day timed tasks lead, earliest time first, and one whose time has passed
-    // stays up next until you complete it. Then what needs you most, then your arrow order, then the task added first.
-    const now = new Date(), nowMin = now.getHours() * 60 + now.getMinutes();
-    const key = t => {
-      const d = dueDays(t.due), urgent = d != null && d <= 1;
-      const mins = t.time ? Number(t.time.slice(0, 2)) * 60 + Number(t.time.slice(3, 5)) : null;
-      const timed = urgent && mins != null;
-      return [urgent ? 0 : 1, urgent ? d : 0, timed ? 0 : 1, timed ? mins : 0, NEXT_RANK[t.status],
-        d == null ? 9999 : d, t.order ?? 1e9, t.num || 0];
-    };
-    const list = [...tasks.values()].filter(t => t.status in NEXT_RANK && !busy.has(t.id));
-    list.sort((a, b) => { const x = key(a), y = key(b); for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return x[i] - y[i]; return 0; });
-    return list[0] || null;
-  }
+  function pickNext() { return window.GidLogic.pickNext(tasks.values(), busy, new Date()); }
   function renderNext() {
     const el = $("next"), t = pickNext();
     el.hidden = !t;
@@ -1444,7 +1485,7 @@ If pass is false, note says in one or two sentences what to fix.`;
         for (const ch of snap.docChanges()) {
           if (busy.has(ch.doc.id)) continue;
           if (ch.type === "removed") tasks.delete(ch.doc.id);
-          else { const d = { ...ch.doc.data() }; if (!d.due && d.created) { d.due = ymd(new Date(d.created)); d.dueAuto = true; } tasks.set(ch.doc.id, d); }
+          else tasks.set(ch.doc.id, withDefaultDue({ ...ch.doc.data() }));
         }
         render();
       }, () => { clearTimeout(slow); notice("Your saved tasks can't be loaded right now. New tasks won't be kept."); col = null; });

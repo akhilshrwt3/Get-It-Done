@@ -69,6 +69,16 @@ If you skip `mcp`, everything except Gmail drafts and Calendar reminders still w
 
 Opened outside claude.ai, for example on GitHub Pages, the page switches to **demo mode**: it shows made-up sample tasks you can open and read, but you can't add, edit or complete anything, and the helpers don't run. Nothing is saved and nothing reaches Gmail or Calendar.
 
+## Tests
+
+The date, Up next and history logic lives in one block of `index.html` (`<script id="gid-logic">`), separate from the page code, so it can be tested without a browser. With Node 20 or newer:
+
+```
+npm test
+```
+
+The tests read that block straight out of `index.html`, so the app is still a single file you can publish as it is.
+
 ## Safety
 
 - The helpers can only write. The prompts tell them never to claim they sent, booked, paid or called anything, and the Checker fails any answer that does.
