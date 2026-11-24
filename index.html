@@ -892,16 +892,17 @@ If pass is false, note says in one or two sentences what to fix.`;
     const dueIn = h("input", { id: "due-" + t.id, class: "hold", type: "date", value: t.due || "" });
     dueIn.addEventListener("change", () => {
       const v = dueIn.value; t.due = DATE_RE.test(v) ? v : ""; t.dueAuto = false; save(t); render(true);
-      if (t.reminderDone) toast("The reminder is already in Google Calendar. Change its day there.");
-      else if (t.due && t.time) ensureReminder(t, true);
+      remFailed.delete(t.id);
+      if (t.due && t.time) ensureReminder(t, true);
+      else if (t.reminderDone) toast("The reminder stays in Google Calendar. Delete it there if you don't need it.");
       else toast(t.due ? dueText(t.due) + "." : "Due date cleared.");
     });
     dueIn.addEventListener("blur", () => { if (pendingRender) render(); });
     const timeIn = h("input", { id: "time-" + t.id, class: "hold", type: "time", value: t.time || "" });
     timeIn.addEventListener("change", () => {
       const v = timeIn.value; t.time = TIME_RE.test(v) ? v : ""; remFailed.delete(t.id); save(t); render(true);
-      if (t.reminderDone) toast("The reminder is already in Google Calendar. Change its time there.");
-      else if (t.time && t.due) ensureReminder(t, true);
+      if (t.time && t.due) ensureReminder(t, true);
+      else if (t.reminderDone) toast("The reminder stays in Google Calendar. Delete it there if you don't need it.");
       else if (t.time) toast("Add a due date too, then the reminder goes into Google Calendar.");
     });
     timeIn.addEventListener("blur", () => { if (pendingRender) render(); });
@@ -924,7 +925,8 @@ If pass is false, note says in one or two sentences what to fix.`;
         t.result = body.value.trim().slice(0, 8000) || t.result;
         if (t.email && !t.gmailDone) t.email.body = t.result;
       }
-      editing = null; save(t); render(true); toast("Saved your changes.");
+      editing = null; save(t); render(true);
+      if (t.reminderDone && needsReminder(t)) ensureReminder(t, true); else toast("Saved your changes.");
     };
     kids.push(h("div", { class: "btns" },
       h("button", { class: "btn primary", type: "button", text: "Save changes", onclick: doSave }),
@@ -939,7 +941,7 @@ If pass is false, note says in one or two sentences what to fix.`;
     if (t.text && t.text !== t.title) kids.push(h("p", { class: "wrote", text: "You wrote: " + t.text }));
     if (!isBusy && t.pile && !demo) kids.push(optionsRow(t));
     if (t.note) kids.push(h("p", { class: "note", text: t.note }));
-    if (t.reminderNote && !t.reminderDone) kids.push(h("p", { class: "note", text: "Reminder not added: " + t.reminderNote }));
+    if (t.reminderNote && !reminderSynced(t)) kids.push(h("p", { class: "note", text: (t.reminderDone ? "Reminder not updated: " : "Reminder not added: ") + t.reminderNote }));
     const k = kinds(t); if (k) kids.push(k);
     if (t.result) {
       const copyBtn = h("button", { class: "btn", type: "button", text: "Copy" });
@@ -958,11 +960,11 @@ If pass is false, note says in one or two sentences what to fix.`;
     if (demo) { btns.push(...links(t)); if (btns.length) kids.push(h("div", { class: "btns" }, btns)); return h("div", { class: "detail" }, kids); }
     if (!isBusy && t.status === "needs_ok") btns.push(h("button", { class: "btn primary", type: "button", onclick: e => approve(t, e.currentTarget), text: approveLabel(t) }));
     btns.push(...links(t));
-    if (t.time && t.due && !t.reminderDone && t.status !== "complete" && !remBusy.has(t.id) && !remPast(t))
-      btns.push(h("button", { class: "btn", type: "button", text: "Add reminder to Calendar", onclick: () => { remFailed.delete(t.id); ensureReminder(t, true); } }));
+    if (needsReminder(t) && !remBusy.has(t.id))
+      btns.push(h("button", { class: "btn", type: "button", text: t.reminderDone ? "Update reminder in Calendar" : "Add reminder to Calendar", onclick: () => { remFailed.delete(t.id); ensureReminder(t, true); } }));
     if (!isBusy && t.status !== "complete" && t.status !== "inbox") btns.push(h("button", { class: "btn" + (t.status === "needs_ok" ? "" : " primary"), type: "button", onclick: () => markComplete(t), text: "Mark complete" }));
     if (!isBusy && t.status === "complete") btns.push(h("button", { class: "btn", type: "button", onclick: () => reopen(t), text: "Reopen" }));
-    if (!isBusy && t.pile && t.status !== "inbox" && !running) btns.push(h("button", { class: "btn", type: "button", onclick: () => { editing = null; Object.assign(t, { status: "queued", result: "", yourPart: "", needsOk: false, okLabel: "", note: "", email: null, event: null, gmailDone: false, gmailUrl: "", calendarDone: false, calendarUrl: "" }); save(t); toast("Queued again. Press Get it Done."); }, text: "Redo" }));
+    if (!isBusy && t.pile && t.status !== "inbox" && !running) btns.push(h("button", { class: "btn", type: "button", onclick: () => { editing = null; Object.assign(t, { status: "queued", result: "", yourPart: "", needsOk: false, okLabel: "", note: "", email: null, event: null, gmailDone: false, gmailUrl: "", calendarDone: false }); save(t); toast("Queued again. Press Get it Done."); }, text: "Redo" }));
     if (!isBusy) {
       const del = h("button", { class: "btn warn" + (armed === t.id ? " armed" : ""), type: "button", text: armed === t.id ? "Click again to delete" : "Delete" });
       del.addEventListener("click", () => { if (armed === t.id) { armed = null; open = null; remove(t); toast("Deleted."); } else { armed = t.id; render(); } });
@@ -988,9 +990,9 @@ If pass is false, note says in one or two sentences what to fix.`;
         }
         where = "Google Calendar";
         if (t.event && !t.calendarDone) {
-          const r = await mcp.callTool("Google Calendar", "create_event", eventInput(t.event));
-          const p = (r && r.payload) || {};
-          t.calendarDone = true; t.calendarUrl = safeLink(p.htmlLink || (p.event && p.event.htmlLink), /(^|\.)google\.com$/); save(t);
+          const r = await upsertEvent(t, "calendar", eventInput(t.event));
+          if (!r) { toast("This event is already being added. Check back in a minute."); if (btn) { btn.disabled = false; btn.textContent = approveLabel(t); } render(); return; }
+          t = r.task; t.calendarDone = true; if (r.url) t.calendarUrl = r.url; save(t);
         }
       } catch (e) {
         toast(mcpMessage(e, where));
@@ -1008,7 +1010,7 @@ If pass is false, note says in one or two sentences what to fix.`;
     const out = [];
     if (t.email) out.push(h("span", { class: "kind mail", text: "Gmail draft" + (t.email.to.length ? " to " + t.email.to.join(", ") : "") + (t.gmailDone ? " · saved" : "") }));
     if (t.event) out.push(h("span", { class: "kind cal", text: "Calendar · " + eventWhen(t.event) + (t.calendarDone ? " · added" : "") }));
-    if (t.time && t.due) out.push(h("span", { class: "kind rem", text: "Reminder · " + reminderWhen(t) + (t.reminderDone ? " · in Google Calendar" : remBusy.has(t.id) ? " · adding…" : " · not added yet") }));
+    if (t.time && t.due) out.push(h("span", { class: "kind rem", text: "Reminder · " + reminderWhen(t) + (remBusy.has(t.id) ? (t.reminderDone ? " · updating…" : " · adding…") : reminderSynced(t) ? " · in Google Calendar" : t.reminderDone ? " · Calendar not updated yet" : " · not added yet") }));
     return out.length ? h("div", { class: "kinds" }, out) : null;
   }
   function links(t) {
@@ -1135,45 +1137,135 @@ If pass is false, note says in one or two sentences what to fix.`;
   const remBusy = new Set(), remFailed = new Set();
   const STOP_CODES = new Set(["needs_reauth", "server_not_connected", "server_not_found", "not_granted", "consent_required", "approval_required", "rate_limited"]);
   const remPast = t => new Date(t.due + "T" + t.time + ":00").getTime() < Date.now();
+  // The reminder in Calendar matches the task's day, time and name.
+  const reminderSynced = t => !!t.reminderDone && t.reminderAt === t.due + " " + t.time &&
+    (t.reminderTitle == null || t.reminderTitle === (t.title || t.text));
+  const needsReminder = t => !!(t.time && t.due) && t.status !== "complete" && !remPast(t) && !reminderSynced(t);
+  function reminderInput(t) {
+    const [hh, mm] = t.time.split(":").map(Number), m = Math.min(hh * 60 + mm + 30, 23 * 60 + 59);
+    const end = two(Math.floor(m / 60)) + ":" + two(m % 60);
+    return {
+      summary: t.title || t.text,
+      startTime: t.due + "T" + t.time + ":00", endTime: t.due + "T" + end + ":00",
+      description: "Reminder from Get It Done. You wrote: " + t.text,
+      notificationLevel: "NONE",
+      overrideReminders: [{ method: "popup", minutes: 15 }, { method: "popup", minutes: 0 }]
+    };
+  }
   async function ensureReminder(t, manual) {
-    if (!t.time || !t.due || t.reminderDone || remBusy.has(t.id) || t.status === "complete") return "skip";
-    if (remPast(t)) { if (manual) toast("That time has already passed, so no reminder was added."); return "skip"; }
+    t = tasks.get(t.id) || t;
+    if (!needsReminder(t) || remBusy.has(t.id)) {
+      if (manual && t.time && t.due && remPast(t) && !reminderSynced(t)) toast("That time has already passed, so the reminder wasn't " + (t.reminderDone ? "moved." : "added."));
+      return "skip";
+    }
     if (!mcp) { if (manual) toast("Calendar reminders only work when this page is open on claude.ai."); return "skip"; }
+    const updating = !!t.reminderDone, id = t.id;
+    // An old reminder whose id we never kept can't be moved from here; adding another would duplicate it.
+    if (updating && !storedEventId(t, "reminder")) { if (manual) toast("The reminder is already in Google Calendar. Change it there."); return "skip"; }
+    const want = { at: t.due + " " + t.time, title: t.title || t.text };
     remBusy.add(t.id); render();
     try {
-      const [hh, mm] = t.time.split(":").map(Number), m = Math.min(hh * 60 + mm + 30, 23 * 60 + 59);
-      const end = two(Math.floor(m / 60)) + ":" + two(m % 60);
-      const r = await mcp.callTool("Google Calendar", "create_event", {
-        summary: t.title || t.text,
-        startTime: t.due + "T" + t.time + ":00", endTime: t.due + "T" + end + ":00",
-        description: "Reminder from Get It Done. You wrote: " + t.text,
-        notificationLevel: "NONE",
-        overrideReminders: [{ method: "popup", minutes: 15 }, { method: "popup", minutes: 0 }]
-      });
-      const p = (r && r.payload) || {};
-      Object.assign(t, { reminderDone: true, reminderNote: "", reminderAt: t.due + " " + t.time,
-        reminderUrl: safeLink(p.htmlLink || (p.event && p.event.htmlLink), /(^|\.)google\.com$/) });
-      remBusy.delete(t.id); save(t);
-      if (manual) toast("Reminder added to Google Calendar.");
+      const r = await upsertEvent(t, "reminder", reminderInput(t));
+      if (!r) return "skip";
+      t = r.task;
+      Object.assign(t, { reminderDone: true, reminderNote: "", reminderAt: want.at, reminderTitle: want.title });
+      if (r.url) t.reminderUrl = r.url;
+      save(t);
+      if (manual) toast(updating ? "Reminder updated in Google Calendar." : "Reminder added to Google Calendar.");
       return "ok";
     } catch (e) {
-      remBusy.delete(t.id); remFailed.add(t.id);
+      t = tasks.get(id); if (!t) return "error";
+      remFailed.add(t.id);
       t.reminderNote = mcpMessage(e, "Google Calendar"); save(t);
       if (manual) toast(t.reminderNote);
       return (e && e.code) || "error";
+    } finally {
+      remBusy.delete(id); render();
     }
   }
   async function syncReminders() {
-    const list = [...tasks.values()].filter(t => t.time && t.due && !t.reminderDone && t.status !== "complete" && !remFailed.has(t.id) && !remPast(t));
+    const list = [...tasks.values()].filter(t => needsReminder(t) && !remFailed.has(t.id));
     if (!list.length || !mcp) return;
     let made = 0;
     for (const t of list) {
       if (ctl && ctl.signal.aborted) break;
       const r = await ensureReminder(t);
       if (r === "ok") made++;
-      else if (STOP_CODES.has(r)) { toast(t.reminderNote); break; }
+      else if (STOP_CODES.has(r)) { toast(tasks.get(t.id)?.reminderNote || mcpMessage({ code: r }, "Google Calendar")); break; }
     }
-    if (made) toast(plural(made, "reminder") + " added to Google Calendar.");
+    if (made) toast(plural(made, "reminder") + " saved in Google Calendar.");
+  }
+
+  /* ---------- One Calendar event per task ---------- */
+  // Each task owns at most one reminder event and one approved event. Their ids are kept on the task in
+  // your saved tasks, so an edit updates the same event and a retry never adds a second one.
+  // Before a create, the task is marked pending (saved, so other tabs and devices see it too). If the page
+  // closes or the call fails after Calendar may already have made the event, the next try looks the event
+  // up by a reference written into its description, instead of creating it again.
+  const TAB = uid(), PENDING_MS = 2 * 60 * 1000;
+  function idFromLink(url) {
+    try {
+      const eid = new URL(url).searchParams.get("eid"); if (!eid) return "";
+      let b = eid.replace(/-/g, "+").replace(/_/g, "/"); while (b.length % 4) b += "=";
+      return atob(b).split(" ")[0] || "";
+    } catch (e) { return ""; }
+  }
+  function eventIdOf(p) {
+    if (!p || typeof p !== "object") return "";
+    const ev = p.event && typeof p.event === "object" ? p.event : p;
+    const id = ev.id || ev.eventId || p.id || p.eventId;
+    return typeof id === "string" && id ? id : idFromLink(ev.htmlLink || p.htmlLink);
+  }
+  const eventLink = p => safeLink(p && (p.htmlLink || (p.event && p.event.htmlLink)), /(^|\.)google\.com$/);
+  const eventRef = (t, kind) => "gid-" + t.id + "-" + kind;
+  // Tasks saved before ids were kept only have the event's link, which carries its id.
+  const storedEventId = (t, kind) => t[kind + "EventId"] || (kind === "reminder" ? (t.reminderDone ? idFromLink(t.reminderUrl) : "") : idFromLink(t.calendarUrl));
+  async function findEvent(ref, day) {
+    const next = new Date(day + "T00:00:00"); next.setDate(next.getDate() + 1);
+    const r = await mcp.callTool("Google Calendar", "list_events", { fullText: ref, startTime: day + "T00:00:00", endTime: ymd(next) + "T00:00:00", pageSize: 10 });
+    const p = (r && r.payload) || {};
+    const list = (Array.isArray(p) ? p : p.events || p.items || []).filter(e => e && typeof e === "object");
+    const hit = list.find(e => String(e.description || "").includes(ref)) || (list.length === 1 && list[0].description == null ? list[0] : null);
+    return hit ? { id: eventIdOf(hit), url: eventLink(hit) } : null;
+  }
+  // Returns { task, id, url } once the event exists and matches input, or null when another tab or device is already creating it.
+  async function upsertEvent(t, kind, input) {
+    const ref = eventRef(t, kind), pk = kind + "Pending", ik = kind + "EventId";
+    input = { ...input, description: (input.description ? input.description + "\n\n" : "") + "Get It Done ref: " + ref };
+    const cur = () => tasks.get(t.id);
+    let id = storedEventId(t, kind), url = "";
+    const pend = t[pk];
+    if (!id && pend) {
+      if (pend.tab !== TAB && Date.now() - pend.at < PENDING_MS) return null;
+      try {
+        const found = await findEvent(ref, pend.day);
+        if (found && found.id) ({ id, url } = found);
+      } catch (e) {
+        // Without the lookup we can't tell, so we only go on to create when the page simply isn't allowed to look.
+        if (!e || e.code !== "not_granted") throw e;
+      }
+    }
+    if (id) {
+      const { allDay, ...rest } = input;
+      const r = await mcp.callTool("Google Calendar", "update_event", { eventId: id, allDay: !!allDay, ...rest });
+      const x = cur(); if (!x) return null;
+      x[ik] = id; x[pk] = null;
+      return { task: x, id, url: eventLink((r && r.payload) || {}) || url };
+    }
+    const base = cur() || t;
+    base[pk] = { at: Date.now(), tab: TAB, day: input.startTime.slice(0, 10) }; save(base);
+    let r;
+    try { r = await mcp.callTool("Google Calendar", "create_event", input); }
+    catch (e) {
+      // These codes mean Calendar never got the request, so a retry can create without looking first.
+      const x = cur(); if (x && e && STOP_CODES.has(e.code)) { x[pk] = null; save(x); }
+      throw e;
+    }
+    const p = (r && r.payload) || {};
+    const x = cur(); if (!x) return null;
+    id = eventIdOf(p);
+    x[ik] = id || ""; x[pk] = null;
+    return { task: x, id, url: eventLink(p) };
   }
   function reminderWhen(t) {
     const d = new Date(t.due + "T00:00:00");
@@ -1243,7 +1335,7 @@ If pass is false, note says in one or two sentences what to fix.`;
     return h("div", { class: "row-edit" },
       h("label", { class: "opt", for: id("title") }, "Task name", f.title),
       h("div", { class: "opts" }, opts),
-      t.reminderDone ? h("p", { class: "wrote", text: "This task already has a reminder in Google Calendar. If you change the day or time here, change it there too." }) : null,
+      t.reminderDone ? h("p", { class: "wrote", text: "This task has a reminder in Google Calendar. A new name, day or time here moves that same reminder." }) : null,
       h("div", { class: "btns" },
         h("button", { class: "btn primary", type: "button", text: "Save changes", onclick: () => saveRowEdit(t, f) }),
         h("button", { class: "btn", type: "button", text: "Cancel", onclick: () => { ledgerEdit = null; cardEdit = null; render(true); } })));
@@ -1261,8 +1353,8 @@ If pass is false, note says in one or two sentences what to fix.`;
     }
     if (f.area && AREAS.includes(f.area.value)) t.area = f.area.value;
     ledgerEdit = null; cardEdit = null; remFailed.delete(t.id); save(t); render(true);
-    if (whenChanged && t.reminderDone) toast("Saved. The reminder in Google Calendar keeps its old time, so change it there.");
-    else if (whenChanged && t.time && t.due && t.status !== "complete") ensureReminder(t, true);
+    if (needsReminder(t) && (whenChanged || t.reminderDone)) ensureReminder(t, true);
+    else if (whenChanged && t.reminderDone && !(t.time && t.due)) toast("Saved. The reminder stays in Google Calendar. Delete it there if you don't need it.");
     else toast("Saved your changes.");
   }
   function renderTop() {

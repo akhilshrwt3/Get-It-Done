@@ -28,7 +28,7 @@ The three piles:
 
 - **Paste a whole list.** Each line becomes its own task.
 - **Due dates.** Every task is due the day you add it, unless you write a deadline. Overdue tasks get a red tag.
-- **Google Calendar reminders.** A task with a time gets its own event, with pop-ups 15 minutes before and at the start. No guests are invited.
+- **Google Calendar reminders.** A task with a time gets its own event, with pop-ups 15 minutes before and at the start. No guests are invited. Each task keeps exactly one event: changing its name, day or time moves that event, and retrying never adds a second one.
 - **Waiting for your OK.** Anything meant for another person lands here first. Approving an email only saves it as a **Gmail draft**. Nothing is ever sent.
 - **Task cards.** Tick to complete, ↑ ↓ to reorder, Edit (name, date, time, pile, life area) and Open reminder, all on the card.
 - **Up next.** Picks the most urgent task: soonest day, then the earliest timed task, then what needs you most. It updates every minute.
@@ -49,7 +49,7 @@ Everything runs on **your own Claude account**. The helpers use your Claude plan
 1. Download [`index.html`](index.html) from this repository.
 2. Start a new chat on claude.ai, attach `index.html`, and send this message:
 
-   > Publish this file as an artifact exactly as it is, without changing the code. Give it these capabilities: `db`, `user` with scopes `["profile"]`, `sample`, and `mcp` with the servers `Gmail` (tool `create_draft`) and `Google Calendar` (tool `create_event`).
+   > Publish this file as an artifact exactly as it is, without changing the code. Give it these capabilities: `db`, `user` with scopes `["profile"]`, `sample`, and `mcp` with the servers `Gmail` (tool `create_draft`) and `Google Calendar` (tools `create_event`, `update_event` and `list_events`).
 
 3. Open the artifact. The first time the helpers run or a reminder is added, Claude asks you to allow it. Say yes.
 4. Add a few tasks and press **Get it Done**.
@@ -65,7 +65,7 @@ If you skip `mcp`, everything except Gmail drafts and Calendar reminders still w
 | `db` | Saving your tasks in `data/users/<your id>`, which only you can read. |
 | `user` | Your first name for the greeting, and your id for private storage. |
 | `sample` | The Sorter, Doer and Checker. Each is a prompt to Claude that returns JSON. |
-| `mcp` | `Gmail → create_draft` when you approve an email, and `Google Calendar → create_event` for reminders and approved events. |
+| `mcp` | `Gmail → create_draft` when you approve an email. `Google Calendar → create_event` for reminders and approved events, `update_event` to move that same event when you change a task's name, day or time, and `list_events` to find an event a dropped connection may already have made, so a retry never adds a second one. |
 
 Opened outside claude.ai, for example on GitHub Pages, the page switches to **demo mode**: it shows made-up sample tasks you can open and read, but you can't add, edit or complete anything, and the helpers don't run. Nothing is saved and nothing reaches Gmail or Calendar.
 
