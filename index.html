@@ -1,0 +1,1364 @@
+<title>Get It Done</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=DM+Sans:opsz,wght@9..40,400;9..40,600;9..40,700&family=Geist+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: greeting + add box → "up next" strip → slim helper strip (grows while working) → three colour-blocked piles → OK panel → history. One bright look on purpose (no dark mode). */
+:root{
+  --bg:#FFFBF0; --paper:#FFFFFF; --ink:#16142B; --muted:#55526E; --faint:#8C89A3;
+  --blue:#2F54FF; --yellow:#FFC93C; --mint:#2FDC98; --pink:#FF4F8B; --orange:#FF8A3D; --violet:#8B5CFF;
+  --bad:#FF3B30; --good:#12B76A;
+  --sky:#6466EC; --cream:#FFF3E2;
+  --line:var(--ink); --soft:#F3EEFF;
+  --shadow:5px 5px 0 var(--ink); --shadow-sm:3px 3px 0 var(--ink);
+  --display:"Bricolage Grotesque","Arial Black",ui-sans-serif,system-ui,sans-serif;
+  --font:"DM Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"Geist Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --r:22px; --r-sm:14px;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background-color:var(--sky);color:var(--ink);font:17px/1.5 var(--font);-webkit-font-smoothing:antialiased;
+  background-image:radial-gradient(color-mix(in srgb, var(--ink) 22%, transparent) 1.2px, transparent 1.6px);
+  background-size:22px 22px}
+
+/* Greeting + add box (matches your reference) */
+.hero{display:flex;flex-direction:column;align-items:flex-start;gap:18px;padding-top:8px}
+.date{font:800 14px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;background:var(--yellow);border:3px solid var(--ink);border-radius:999px;padding:9px 16px;box-shadow:var(--shadow-sm)}
+.hero h1{margin:0;font:800 clamp(44px,8vw,104px)/1 var(--display);letter-spacing:-.05em;text-wrap:balance}
+.hero mark{background:var(--yellow);color:var(--ink);border:4px solid var(--ink);border-radius:.18em;padding:0 .16em;box-shadow:6px 6px 0 var(--ink);display:inline-block;line-height:1.08}
+.hero .sub{margin:0;font-size:19px;font-weight:600;line-height:1.6}
+.hero .sub b{font-weight:800}
+.est{display:inline-block;vertical-align:middle;margin-left:4px;font:800 12px/1 var(--font);letter-spacing:.06em;background:var(--yellow);border:2px solid var(--ink);border-radius:999px;padding:5px 9px;cursor:help}
+.adder{display:flex;flex-direction:column;gap:16px;background:var(--cream);border:4px solid var(--ink);border-radius:28px;padding:26px 28px 22px;box-shadow:8px 8px 0 var(--ink)}
+.adder textarea{border:0;background:transparent;resize:none;min-height:72px;max-height:220px;font:500 21px/1.45 var(--font);padding:4px 0;outline:none}
+.adder textarea::placeholder{color:#55526E}
+.adder:focus-within{box-shadow:8px 8px 0 var(--ink), 0 0 0 4px var(--yellow)}
+.list{display:flex;flex-wrap:wrap;gap:10px}
+.tag{display:inline-flex;align-items:center;gap:6px;max-width:100%;padding:8px 8px 8px 14px;border-radius:999px;background:var(--paper);border:2px solid var(--ink);font-size:16px;font-weight:600;animation:pop .25s ease both}
+.tag-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.tag .x{border:0;background:var(--soft);border-radius:50%;width:26px;height:26px;font-size:18px;line-height:1;display:grid;place-items:center;flex:none}
+.tag .x:hover{background:var(--pink);color:#fff}
+.adder-foot{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+.status{margin:0;display:flex;align-items:center;gap:10px;font-size:17px;font-weight:700;min-width:0}
+.status .dot{width:10px;height:10px;background:var(--ink);border:0}
+.status.live .dot{background:var(--pink);box-shadow:0 0 0 3px var(--ink)}
+.adder-btns{display:flex;gap:12px;align-items:center}
+.add{border:3px solid var(--ink);background:var(--paper);border-radius:999px;padding:16px 26px;font:800 18px/1 var(--display);box-shadow:4px 4px 0 var(--ink);transition:transform .1s ease, box-shadow .1s ease}
+.adder .go{border:3px solid var(--ink);border-radius:999px;padding:18px 32px;min-width:0;background:var(--pink);color:#fff;font:800 22px/1 var(--display);box-shadow:4px 4px 0 var(--ink)}
+.add:hover,.adder .go:hover{transform:translate(-2px,-2px);box-shadow:6px 6px 0 var(--ink)}
+.add:active,.adder .go:active{transform:translate(3px,3px);box-shadow:1px 1px 0 var(--ink)}
+.adder .go.running{background:var(--ink);color:#fff}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media (max-width:620px){
+  .adder{padding:20px 18px}
+  .adder-btns{width:100%}
+  .add,.adder .go{flex:1;text-align:center}
+}
+button,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:4px solid var(--blue);outline-offset:3px;border-radius:12px}
+.wrap{max-width:1440px;margin:0 auto;padding-block:32px 72px;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));
+  display:flex;flex-direction:column;gap:26px}
+.eyebrow{font:700 13px/1.2 var(--font);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+
+.go{border:3px solid var(--ink);border-radius:var(--r);padding:26px 34px;min-width:260px;background:var(--mint);color:var(--ink);
+  font:800 30px/1 var(--display);letter-spacing:-.02em;box-shadow:var(--shadow);transition:transform .12s ease, box-shadow .12s ease}
+.go:hover{transform:translate(-2px,-2px);box-shadow:7px 7px 0 var(--ink)}
+.go:active{transform:translate(3px,3px);box-shadow:2px 2px 0 var(--ink)}
+.go.running{background:var(--pink);color:#fff}
+.dot{width:12px;height:12px;border-radius:50%;background:var(--faint);flex:none;border:2px solid var(--ink)}
+
+.notice{padding:14px 18px;border-radius:var(--r-sm);border:3px solid var(--ink);background:var(--yellow);font-size:16px;font-weight:600;box-shadow:var(--shadow-sm)}
+
+/* Helpers */
+.crew{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.helper{--c:var(--orange);display:grid;grid-template-columns:auto minmax(0,1fr);gap:18px;align-items:center;padding:22px 24px;border-radius:var(--r);
+  border:3px solid var(--ink);background:var(--paper);box-shadow:var(--shadow);transition:background .3s ease}
+#h-sorter{--c:var(--orange)} #h-doer{--c:var(--blue)} #h-checker{--c:var(--violet)}
+.helper.on{background:color-mix(in srgb, var(--c) 16%, white)}
+.ring{width:72px;height:72px;border-radius:50%;display:grid;place-items:center;position:relative;
+  background:var(--c);color:#fff;font:800 32px/1 var(--display);border:3px solid var(--ink)}
+.helper.on .ring::before{content:"";position:absolute;inset:-10px;border-radius:50%;border:4px dashed var(--c);animation:spin 3s linear infinite}
+@keyframes spin{to{transform:rotate(1turn)}}
+.helper .hd{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.helper h3{margin:0;font:800 28px/1 var(--display);letter-spacing:-.02em}
+.helper .state{font:700 13px/1 var(--font);letter-spacing:.06em;text-transform:uppercase;padding:6px 10px;border-radius:999px;border:2px solid var(--ink);background:var(--paper)}
+.helper.on .state{background:var(--c);color:#fff}
+.helper .role{margin:6px 0 0;color:var(--muted);font-size:15px}
+.helper .now{margin:10px 0 0;font-size:17px;font-weight:600;min-height:1.5em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
+.helper.on .now{color:var(--ink)}
+
+/* Main */
+.main{display:grid;grid-template-columns:minmax(0,1fr);gap:24px;align-items:start}
+.board{display:flex;flex-direction:column;gap:18px;min-width:0}
+.filters{display:flex;gap:10px;flex-wrap:wrap}
+.chip{border:2px solid var(--ink);background:var(--paper);border-radius:999px;padding:10px 18px;font-size:16px;font-weight:700;display:inline-flex;gap:8px;align-items:center;transition:transform .1s ease}
+.chip:hover{transform:translateY(-2px)}
+.chip[aria-pressed="true"]{background:var(--ink);color:#fff}
+.chip .n{font:700 13px/1 var(--mono);background:var(--yellow);color:var(--ink);padding:4px 7px;border-radius:999px}
+.inbox{display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:16px 18px;border:3px dashed var(--ink);border-radius:var(--r);background:var(--paper)}
+.inbox .tag{padding:8px 14px;border-radius:12px;background:var(--yellow);border:2px solid var(--ink);font-size:16px;font-weight:600;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.piles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.pile{--c:var(--yellow);display:flex;flex-direction:column;gap:14px;min-width:0;padding:18px;border-radius:26px;border:3px solid var(--ink);
+  background:var(--c);box-shadow:var(--shadow)}
+.pile[data-pile="agent"]{--c:var(--yellow)}
+.pile[data-pile="together"]{--c:var(--mint)}
+.pile[data-pile="me"]{--c:var(--pink)}
+.pile-hd{display:flex;flex-direction:column;gap:6px;padding:4px 4px 6px}
+.pile-hd .row{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.pile-hd h2{margin:0;font:800 26px/1.05 var(--display);letter-spacing:-.02em}
+.pile-hd h2 i{display:none}
+.pile-hd p{margin:0;font-size:15px;font-weight:600;opacity:.8}
+.pile-hd .count{font:700 14px/1 var(--mono);background:var(--ink);color:#fff;padding:7px 10px;border-radius:999px;white-space:nowrap}
+.empty{padding:28px 14px;font-size:16px;font-weight:600;text-align:center;background:rgba(255,255,255,.55);border:2px dashed var(--ink);border-radius:18px}
+
+.task{border:3px solid var(--ink);border-radius:18px;background:var(--paper);overflow:hidden;box-shadow:var(--shadow-sm);animation:pop .3s ease both}
+@keyframes pop{from{transform:scale(.97);opacity:.5}to{transform:none;opacity:1}}
+.task.s-complete{opacity:.6}
+.task-head{all:unset;box-sizing:border-box;display:flex;flex-direction:column;gap:12px;width:100%;padding:16px 18px;cursor:pointer}
+.card-top{display:flex;align-items:flex-start}
+.card-top .tick{margin:14px 0 0 14px}
+.card-top .task-head{flex:1 1 auto;min-width:0;padding-left:12px}
+.card-acts{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;padding:0 16px 14px}
+.card-acts .btn{padding:7px 12px;font-size:14px;box-shadow:none}
+.card-acts .btn:hover{box-shadow:var(--shadow-sm)}
+.card-acts .mvs{display:flex;gap:6px;margin-right:auto}
+.card-acts .mv{min-width:42px;font-size:17px;font-weight:800;line-height:1}
+.card-acts .mv:disabled{opacity:.3;cursor:default;box-shadow:none;transform:none}
+.card-edit{display:flex;padding:0 16px 16px}
+.task-head:focus-visible{outline:4px solid var(--blue);outline-offset:-4px;border-radius:14px}
+.task-head .t{display:flex;gap:10px;align-items:baseline;min-width:0}
+.task-head .num{font:700 14px/1 var(--mono);color:var(--faint);flex:none}
+.task-head .title{font:700 19px/1.3 var(--font);min-width:0;overflow-wrap:anywhere}
+.task.s-complete .title{text-decoration:line-through}
+.task-head .meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.area{font:700 13px/1 var(--font);letter-spacing:.04em;text-transform:uppercase;padding:6px 10px;border-radius:999px;background:var(--soft);border:2px solid var(--ink)}
+.pill{display:inline-flex;align-items:center;gap:7px;font-size:14px;font-weight:700;padding:5px 11px 5px 8px;border-radius:999px;border:2px solid var(--ink);background:var(--paper)}
+.pill .dot{width:11px;height:11px;border-width:0}
+.pill.working{background:#E3E9FF}.pill.working .dot{background:var(--blue);animation:pulse 1s ease-in-out infinite}
+.pill.good{background:#D6F8E8}.pill.good .dot{background:var(--good)}
+.pill.ok{background:#FFF1B8}.pill.ok .dot{background:var(--orange)}
+.pill.bad{background:#FFE0DE}.pill.bad .dot{background:var(--bad)}
+.pill.you{background:#FFE0EF}.pill.you .dot{background:var(--pink)}
+@keyframes pulse{50%{opacity:.25}}
+.mins{font:800 15px/1 var(--mono);color:#fff;background:var(--good);padding:6px 10px;border-radius:999px;border:2px solid var(--ink);margin-left:auto}
+
+.detail{padding:16px 18px 18px;display:flex;flex-direction:column;gap:14px;border-top:3px solid var(--ink);background:#FFFDF6}
+.block{display:flex;flex-direction:column;gap:8px}
+.result{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font:16px/1.6 var(--font);padding:16px;border-radius:var(--r-sm);background:var(--paper);border:2px solid var(--ink);max-height:380px;overflow:auto}
+.yours{margin:0;white-space:pre-wrap;font-size:16px;font-weight:600;padding:14px 16px;border-radius:var(--r-sm);border:2px solid var(--ink);background:#FFE0EF}
+.note{margin:0;font-size:15px;font-weight:700;color:var(--bad)}
+.wrote{margin:0;font-size:15px;color:var(--muted)}
+.btns{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.btn{border:2px solid var(--ink);background:var(--paper);border-radius:14px;padding:11px 18px;font-size:16px;font-weight:700;box-shadow:var(--shadow-sm);transition:transform .1s ease, box-shadow .1s ease}
+.btn:hover{transform:translate(-1px,-1px);box-shadow:4px 4px 0 var(--ink)}
+.btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--ink)}
+.btn.primary{background:var(--blue);color:#fff}
+.btn.warn{color:var(--bad)}
+.btn.warn.armed{background:var(--bad);color:#fff}
+/* History */
+.history{display:flex;flex-direction:column;gap:20px;background:var(--cream);border:4px solid var(--ink);border-radius:28px;padding:26px 28px;box-shadow:8px 8px 0 var(--ink)}
+.history-hd{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+.history-hd h2{margin:6px 0 0;font:800 clamp(32px,4.5vw,52px)/1 var(--display);letter-spacing:-.04em}
+.periods{display:flex;gap:8px;flex-wrap:wrap}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px}
+.meter{height:14px;border:2px solid var(--ink);border-radius:999px;background:rgba(255,255,255,.65);overflow:hidden}
+.meter i{display:block;height:100%;background:var(--ink);transition:width .4s ease}
+.t-paper{background:var(--paper)}
+.tile{display:flex;flex-direction:column;gap:8px;padding:18px 20px;border:3px solid var(--ink);border-radius:20px;box-shadow:var(--shadow-sm);min-width:0}
+.tile .eyebrow{color:inherit;opacity:.85}
+.tile b{font:800 clamp(36px,4vw,52px)/1 var(--display);letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+.tile p{margin:0;font-size:17px;font-weight:700;line-height:1.35}
+.t-blue{background:var(--blue);color:#fff}
+.t-mint{background:var(--mint)}
+.t-yellow{background:var(--yellow)}
+.t-pink{background:var(--pink);color:var(--ink)}
+.chart{display:flex;align-items:stretch;gap:8px;height:230px;padding:16px 14px 10px;border:3px solid var(--ink);border-radius:20px;background:var(--paper);overflow-x:auto}
+.bar{flex:1 0 18px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px;min-width:18px}
+.bar i{display:block;width:100%;max-width:56px;background:var(--blue);border:2px solid var(--ink);border-radius:8px 8px 3px 3px}
+.bar .pair{flex:1 1 auto;display:flex;align-items:flex-end;justify-content:center;gap:3px;width:100%;min-height:0}
+.bar .bcol{flex:1 1 0;max-width:28px;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;min-width:0}
+.bar .bcol i{width:100%}
+.bar .v{font:800 13px/1 var(--mono);min-height:13px}
+.chart.p-month .bar .v{font-size:9px;min-height:9px}
+.bar i.all{background:var(--blue)}
+.bar i.fin{background:var(--mint)}
+.bar.zero i{background:var(--soft);border-color:#C9C3E6}
+.chart.p-month .bar{min-width:28px}
+.chart.p-month .bar .n{font-size:10px}
+.legend{display:flex;gap:18px;flex-wrap:wrap;font-size:15px;font-weight:700}
+.legend span{display:inline-flex;align-items:center;gap:8px}
+.sw{width:16px;height:16px;border:2px solid var(--ink);border-radius:4px;display:inline-block}
+.sw.all{background:var(--blue)}
+.sw.fin{background:var(--mint)}
+.bar .n{font:800 15px/1 var(--mono);min-height:15px}
+.bar .lbl{font:700 13px/1 var(--font);color:var(--muted);white-space:nowrap}
+.chart.p-month .bar .lbl{font-size:11px}
+.days{display:flex;flex-direction:column;gap:18px}
+.day-hd{display:flex;justify-content:space-between;align-items:center;gap:10px;padding-bottom:8px;border-bottom:3px solid var(--ink)}
+.day-hd h3{margin:0;font:800 22px/1.1 var(--display)}
+.day-hd .count{font:700 14px/1 var(--mono);background:var(--ink);color:#fff;padding:7px 10px;border-radius:999px}
+.day ul{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+.day li{border:2px solid var(--ink);border-left-width:10px;border-radius:14px;background:var(--paper)}
+.day li.p-agent{border-left-color:var(--yellow)} .day li.p-together{border-left-color:var(--mint)} .day li.p-me{border-left-color:var(--pink)}
+.hist-item{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:10px;flex-wrap:wrap;width:100%;padding:12px 14px;cursor:pointer}
+.hist-item:focus-visible{outline:4px solid var(--blue);outline-offset:2px;border-radius:12px}
+.hist-item .title{font-weight:700;font-size:17px;min-width:0;overflow-wrap:anywhere;flex:1 1 220px}
+.day li.is-done .title{text-decoration:line-through;color:var(--muted)}
+@media (max-width:520px){ .history{padding:20px 16px} }
+.kinds{display:flex;flex-wrap:wrap;gap:8px}
+.kind{font:700 14px/1.2 var(--font);padding:7px 12px;border-radius:999px;border:2px solid var(--ink);overflow-wrap:anywhere}
+.kind.mail{background:#FFE0DE}
+.kind.cal{background:#D9E2FF}
+a.btn{text-decoration:none;color:var(--ink);display:inline-block}
+.btn:disabled{opacity:.6;cursor:wait}
+.minrow{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:700}
+.minrow input{width:96px;padding:10px 12px;border-radius:12px;border:2px solid var(--ink);background:var(--paper);font:700 18px/1 var(--mono)}
+
+/* Rail */
+/* The OK panel always sits full width, right under the piles and above your history. */
+.rail{display:flex;flex-direction:column;gap:22px}
+.panel{border:3px solid var(--ink);border-radius:26px;background:var(--paper);box-shadow:var(--shadow);overflow:hidden}
+.panel-hd{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:18px 20px;border-bottom:3px solid var(--ink);background:var(--violet);color:#fff}
+.panel-hd h2{margin:0;font:800 24px/1 var(--display);letter-spacing:-.02em}
+.panel-hd .eyebrow{color:#EDE5FF}
+.panel.ok .panel-hd{background:var(--orange);color:var(--ink)}
+.ok-list{display:flex;flex-direction:column}
+.ok-item{display:flex;flex-direction:column;gap:10px;padding:18px 20px;border-top:2px solid var(--ink)}
+.ok-item:first-child{border-top:0}
+.ok-item .lbl{display:flex;gap:10px;align-items:baseline;font:700 18px/1.3 var(--font)}
+.ok-item .lbl .num{font:700 14px/1 var(--mono);color:var(--faint)}
+.ok-item p{margin:0;font-size:15px;color:var(--muted);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap}
+.ok-group{padding:12px 20px;border-top:3px solid var(--ink);background:#FFF1B8;font:800 12px/1.2 var(--font);letter-spacing:.08em;text-transform:uppercase}
+.ok-empty{padding:22px 20px;color:var(--muted);font-size:16px}
+.badge{font:800 18px/1 var(--mono);padding:8px 12px;border-radius:999px;background:var(--ink);color:#fff}
+.badge.zero{background:rgba(255,255,255,.6);color:var(--ink)}
+.lock{font-size:14px;font-weight:600;padding:14px 20px;border-top:2px solid var(--ink);background:#FFF6CC}
+
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom, 0px));transform:translateX(-50%) translateY(20px);opacity:0;
+  background:var(--ink);color:#fff;padding:14px 22px;border-radius:16px;font-size:16px;font-weight:700;transition:all .25s ease;pointer-events:none;max-width:calc(100% - 32px);z-index:20;box-shadow:4px 4px 0 var(--yellow)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+@media (max-width:1180px){
+  .main{grid-template-columns:minmax(0,1fr)}
+  .rail{position:static}
+}
+@media (max-width:820px){
+  .piles,.crew{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:620px){
+  .go{min-width:0;width:100%}
+  .helper{grid-template-columns:minmax(0,1fr)}
+  .ring{width:56px;height:56px;font-size:26px}
+}
+/* Quiet helper strip while nobody is working */
+.crew.quiet{gap:12px}
+.crew.quiet .helper{padding:10px 14px;gap:12px;box-shadow:var(--shadow-sm);border-radius:var(--r-sm)}
+.crew.quiet .ring{width:38px;height:38px;font-size:18px;border-width:2px}
+.crew.quiet .helper h3{font-size:19px}
+.crew.quiet .helper .state{font-size:11px;padding:4px 8px}
+.crew.quiet .role{display:none}
+.crew.quiet .now{margin-top:2px;font-size:14px;min-height:0}
+@media (max-width:620px){ .crew.quiet .helper{grid-template-columns:auto minmax(0,1fr)} }
+
+/* Up next */
+.next{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:16px 20px;border:3px solid var(--ink);border-radius:var(--r);background:var(--paper);box-shadow:var(--shadow)}
+.next .tagline{font:800 13px/1 var(--font);letter-spacing:.08em;text-transform:uppercase;background:var(--yellow);border:2px solid var(--ink);border-radius:999px;padding:8px 12px;flex:none}
+.next .what{flex:1 1 240px;min-width:0;display:flex;flex-direction:column;gap:4px}
+.next .what b{font:800 22px/1.2 var(--display);letter-spacing:-.01em;overflow-wrap:anywhere}
+.next .why{font-size:15px;font-weight:600;color:var(--muted)}
+
+/* Due dates */
+.due{font:700 13px/1 var(--font);padding:6px 10px;border-radius:999px;border:2px solid var(--ink);background:var(--paper);white-space:nowrap}
+.due.soon{background:var(--yellow)}
+.due.late{background:var(--bad);color:#fff}
+
+/* Task options + editing */
+.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+.opt{display:flex;flex-direction:column;gap:6px;font:700 12px/1.2 var(--font);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);min-width:0}
+.opt select,.opt input{text-transform:none;letter-spacing:0;font:600 15px/1.2 var(--font);color:var(--ink);padding:9px 10px;border:2px solid var(--ink);border-radius:12px;background:var(--paper);min-width:0;width:100%}
+.edit-field{width:100%;border:2px solid var(--ink);border-radius:var(--r-sm);padding:12px 14px;background:var(--paper);font:16px/1.55 var(--font);color:var(--ink)}
+input.edit-field{font-weight:700;font-size:18px}
+textarea.edit-field{min-height:220px;resize:vertical}
+
+/* Tick box on task cards */
+.tick{flex:none;width:32px;height:32px;padding:0;border:3px solid var(--ink);border-radius:9px;background:var(--paper);display:grid;place-items:center;font:800 18px/1 var(--font);color:var(--ink)}
+.tick:hover{background:#D6F8E8}
+.tick.on{background:var(--good);color:#fff}
+.tick:disabled{opacity:.4;cursor:wait}
+.kind.rem{background:#D6F8E8}
+.row-edit{flex:1 0 100%;display:flex;flex-direction:column;gap:12px;padding-top:12px;border-top:2px dashed var(--ink)}
+.row-edit .edit-field{font-size:17px}
+
+@media (prefers-reduced-motion: reduce){
+  *,*::before{animation:none!important;transition:none!important}
+}
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <span class="date" id="date">Today</span>
+    <h1><span id="hello">Hello</span><span id="nameWrap" hidden>, <mark id="name"></mark></span>.</h1>
+    <p class="sub" aria-live="polite"><span id="weekDone">0 done</span> this week, about <b id="weekMin">0 min</b> back in your pocket <span class="est" title="The helpers' own estimate. You can change it on any task.">EST.</span></p>
+  </header>
+
+  <form class="adder" id="composer">
+    <label class="sr" for="chatInput">Add tasks</label>
+    <textarea id="chatInput" rows="2" placeholder="Add anything: a bill, a birthday, a call to make. Paste a whole list and each line becomes a task."></textarea>
+    <div class="list" id="inbox" hidden></div>
+    <div class="adder-foot">
+      <p class="status" id="status" aria-live="polite"><span class="dot"></span><span id="statusText">Nothing on the list yet.</span></p>
+      <div class="adder-btns">
+        <button class="add" type="submit">Add</button>
+        <button class="go" id="go" type="button"><span id="goLabel">Get it Done</span> <span aria-hidden="true">→</span></button>
+      </div>
+    </div>
+  </form>
+
+  <section class="next" id="next" aria-label="Up next" hidden></section>
+
+  <section class="crew quiet" id="crew" aria-label="Helpers">
+    <div class="helper" id="h-sorter"><div class="ring">S</div><div><div class="hd"><h3>Sorter</h3><span class="state">Idle</span></div><p class="role">Picks the pile and the life area</p><p class="now">Waiting for new tasks</p></div></div>
+    <div class="helper" id="h-doer"><div class="ring">D</div><div><div class="hd"><h3>Doer</h3><span class="state">Idle</span></div><p class="role">Does the work, two tasks at a time</p><p class="now">Waiting for sorted tasks</p></div></div>
+    <div class="helper" id="h-checker"><div class="ring">C</div><div><div class="hd"><h3>Checker</h3><span class="state">Idle</span></div><p class="role">Double-checks the Doer's work</p><p class="now">Nothing to check yet</p></div></div>
+  </section>
+
+  <div class="main">
+    <section class="board" aria-label="Your tasks">
+      <div class="filters" id="filters" role="group" aria-label="Filter by life area"></div>
+      <div class="piles" id="piles"></div>
+    </section>
+
+  </div>
+
+  <aside class="rail">
+      <section class="panel ok" aria-label="Waiting for your OK">
+        <div class="panel-hd"><h2>Waiting for your OK</h2><span class="badge zero" id="okCount">0</span></div>
+        <div class="ok-list" id="okList"></div>
+        <div class="lock">Nothing is ever sent. Approve saves emails as Gmail drafts and adds events to your calendar only, with no invites. Tasks with a time get a reminder in your Google Calendar on their own, also with no invites.</div>
+      </section>
+  </aside>
+
+  <section class="history" aria-label="Your history">
+    <div class="history-hd">
+      <div>
+        <span class="eyebrow">Nothing is thrown away</span>
+        <h2>What you got done</h2>
+      </div>
+      <div class="periods" id="periods" role="group" aria-label="Pick a time range"></div>
+    </div>
+    <div class="tiles" id="histTiles"></div>
+    <div class="legend" aria-hidden="true"><span><i class="sw all"></i>All tasks</span><span><i class="sw fin"></i>Completed</span></div>
+    <div class="chart" id="histChart" aria-hidden="true"></div>
+    <div class="days" id="histList"></div>
+  </section>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(() => {
+  const AREAS = ["work", "home", "family", "money", "health"];
+  const PILES = {
+    agent:    { name: "Agent does it",   hint: "Finished for you, start to end" },
+    together: { name: "We do it together", hint: "The agent does most, you finish" },
+    me:       { name: "Only I can do it",  hint: "You do it, the agent helps you prepare" }
+  };
+  const STATUS = {
+    inbox:    ["New", ""],
+    queued:   ["Sorted", ""],
+    doing:    ["Doer working", "working"],
+    checking: ["Checking", "working"],
+    done:     ["Done by agent", "good"],
+    your_turn:["Your turn", "you"],
+    needs_ok: ["Needs your OK", "ok"],
+    approved: ["Approved, send it yourself", "you"],
+    flagged:  ["Needs a look", "bad"],
+    complete: ["Complete", "good"]
+  };
+  const SAVED = new Set(["done", "your_turn", "needs_ok", "approved", "complete"]);
+  const HARD_STOP = new Set(["not_granted", "sampling_disabled", "not_declared", "capability_disabled", "capability_removed", "session_expired"]);
+
+  const $ = id => document.getElementById(id);
+  const tasks = new Map();
+  const busy = new Set();
+  const writes = new Map();
+  let mcp = null;
+  let col = null, sample = null, running = false, ctl = null, stopReason = null;
+  let open = null, armed = null, editing = null, ledgerEdit = null, cardEdit = null, pendingRender = false;
+  let filter = "all";
+  try { filter = localStorage.getItem("gid.filter") || "all"; } catch (e) {}
+  let statusMsg = "";
+  const helpers = { sorter: new Map(), doer: new Map(), checker: new Map() };
+  const lastLine = { sorter: "Waiting for new tasks", doer: "Waiting for sorted tasks", checker: "Nothing to check yet" };
+
+  function h(tag, props, ...kids) {
+    const el = document.createElement(tag);
+    if (props) for (const [k, v] of Object.entries(props)) {
+      if (v == null || v === false) continue;
+      if (k === "class") el.className = v;
+      else if (k === "text") el.textContent = v;
+      else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+      else el.setAttribute(k, v === true ? "" : v);
+    }
+    for (const c of kids.flat()) { if (c == null || c === false) continue; el.append(c.nodeType ? c : String(c)); }
+    return el;
+  }
+  const pad = n => String(n || 0).padStart(3, "0");
+  const plural = (n, w) => n + " " + w + (n === 1 ? "" : "s");
+  function fmt(min) {
+    min = Math.round(min);
+    if (min < 60) return { v: String(min), u: "min" };
+    const hh = Math.floor(min / 60), mm = min % 60;
+    return { v: hh + "h " + String(mm).padStart(2, "0"), u: "min" };
+  }
+  const uid = () => "t" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  function toast(msg) {
+    const t = $("toast"); t.textContent = msg; t.classList.add("show");
+    clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("show"), 3200);
+  }
+  function notice(msg) { const n = $("notice"); n.textContent = msg || ""; n.hidden = !msg; }
+
+  /* ---------- Saving ---------- */
+  function save(t) {
+    tasks.set(t.id, t);
+    render();
+    if (!col) return;
+    const body = JSON.parse(JSON.stringify(t));
+    const prev = writes.get(t.id) || Promise.resolve();
+    const p = prev.then(() => col.doc(t.id).set(body)).catch(e => {
+      if (e && e.code === "quota_exceeded") toast("Storage is full. Delete some finished tasks.");
+      else if (e && e.code !== "revoked") toast("Couldn't save that change. It will try again on the next change.");
+    });
+    writes.set(t.id, p);
+  }
+  function remove(t) {
+    tasks.delete(t.id); render();
+    if (!col) return;
+    const prev = writes.get(t.id) || Promise.resolve();
+    writes.set(t.id, prev.then(() => col.doc(t.id).delete()).catch(() => toast("Couldn't delete that task.")));
+  }
+  function nextNum() { let m = 0; for (const t of tasks.values()) m = Math.max(m, t.num || 0); return m + 1; }
+  function newTask(text) {
+    return { id: uid(), num: nextNum(), text, title: text, pile: null, area: null, status: "inbox",
+      result: "", yourPart: "", needsOk: false, okLabel: "", minutes: 0, note: "", created: Date.now(), due: ymd(new Date()), dueAuto: true };
+  }
+
+  /* ---------- Adding tasks ---------- */
+  // The status line under the add box shows the latest message from the helpers.
+  function say(role, text) { statusMsg = text; renderTop(); if (role === "bot") toast(text); }
+  function addFromText(raw) {
+    const lines = raw.split(/\n+/).map(s => s.replace(/^[-*•\d.)\s]+/, "").trim()).filter(Boolean);
+    if (!lines.length) return;
+    statusMsg = "";
+    for (const line of lines) save(newTask(line.slice(0, 400)));
+  }
+
+  /* ---------- Helpers (live cards) ---------- */
+  function helperStart(name, t, verb) { helpers[name].set(t ? t.id : "batch", (t ? "#" + pad(t.num) + "  " : "") + verb); renderHelpers(); }
+  function helperEnd(name, t, line) { helpers[name].delete(t ? t.id : "batch"); if (line) lastLine[name] = line; renderHelpers(); }
+  function renderHelpers() {
+    for (const name of ["sorter", "doer", "checker"]) {
+      const el = $("h-" + name), on = helpers[name].size > 0;
+      el.classList.toggle("on", on);
+      el.querySelector(".state").textContent = on ? (helpers[name].size > 1 ? "Working on " + helpers[name].size : "Working") : "Idle";
+      el.querySelector(".now").textContent = on ? [...helpers[name].values()].join("   ·   ") : lastLine[name];
+    }
+    $("crew").classList.toggle("quiet", !running && !["sorter", "doer", "checker"].some(n => helpers[n].size));
+  }
+
+  /* ---------- Claude calls ---------- */
+  function cleanText(v, max) { return typeof v === "string" ? v.trim().slice(0, max) : ""; }
+
+  async function runSorter(list) {
+    helperStart("sorter", null, "Sorting " + plural(list.length, "new task"));
+    const entries = list.map(t => ({ id: t.id, text: t.text }));
+    const prompt =
+`You are the Sorter in a personal to-do helper. Sort each entry into one pile and one life area.
+
+Piles:
+- "agent": Claude can finish it alone in writing (drafts, emails, plans, summaries, lists, explanations from general knowledge).
+- "together": Claude can do most of the work, but the person must add details, choose, or do a final step.
+- "me": only the person can do it (go somewhere, call, attend, pay, sign, a physical task, a personal conversation). Claude will still help them prepare.
+
+Life areas: "work", "home", "family", "money", "health".
+
+If one entry holds several separate tasks, split it into several rows with the same entry id.
+title: a short task name starting with a verb, at most 60 characters, in the person's language.
+due: the deadline as YYYY-MM-DD if the entry gives one (work out words like "Friday" or "tomorrow" from today), otherwise "". Today is ${todayText()}.
+time: a clock time as HH:MM in 24-hour time if the entry gives one, including "at 3pm", "9:30", "after 8 pm" (20:00), "by 6pm" or "before noon" (12:00), otherwise "".
+
+Entries:
+${JSON.stringify(entries)}
+
+Reply with only a JSON array of objects like {"entry": "<id>", "title": "...", "pile": "agent", "area": "home", "due": "", "time": ""}.`;
+    try {
+      const out = await sample.json(prompt, { modelTier: "quick", cache: false, signal: ctl.signal });
+      if (!Array.isArray(out)) throw { code: "invalid_json" };
+      let made = 0;
+      for (const t of list) {
+        const rows = out.filter(r => r && r.entry === t.id);
+        if (!rows.length) continue;
+        rows.slice(0, 6).forEach((r, i) => {
+          const target = i === 0 ? t : newTask(t.text);
+          target.title = cleanText(r.title, 80) || t.text;
+          target.pile = PILES[r.pile] ? r.pile : "together";
+          target.area = AREAS.includes(r.area) ? r.area : "home";
+          if ((!target.due || target.dueAuto) && DATE_RE.test(String(r.due || ""))) { target.due = String(r.due); target.dueAuto = false; }
+          if (!target.time && TIME_RE.test(String(r.time || ""))) target.time = String(r.time);
+          target.status = "queued";
+          save(target); made++;
+        });
+      }
+      helperEnd("sorter", null, "Sorted " + plural(made, "task"));
+    } catch (e) { helperEnd("sorter", null, "Couldn't sort this time"); throw e; }
+  }
+
+  const PILE_RULE = {
+    agent: "Finish the whole task. The result must be ready to use as it is.",
+    together: "Do as much of the work as you can, most of it. Then say clearly in your_part what the person still needs to decide, add or do to finish.",
+    me: "Only the person can do this, but help them do it. Write a one-line reminder, then a short script (for a call or conversation) or a checklist, whichever helps most. Put the action they must take in your_part."
+  };
+
+  async function runDoer(t, fix) {
+    const prompt =
+`You are the Doer in a personal to-do helper. Do the task below now, in writing.
+
+Task: ${JSON.stringify(t.title)}
+What the person typed: ${JSON.stringify(t.text)}
+Life area: ${t.area}
+Pile: ${PILES[t.pile].name}. ${PILE_RULE[t.pile]}
+${fix ? `\nThe Checker sent your last attempt back. Fix this: ${fix}\nYour last attempt:\n${t.result}\n` : ""}
+Rules:
+- You can only write. You cannot send, post, book, buy, pay, call or browse the web. Never say you did any of these.
+- Anything meant for another person or a service (an email, a message, a post, a form, a booking request) is a draft: set needs_ok to true.
+- Don't invent personal facts. Use clear placeholders like [your address] where you need details.
+- Plain text only: short paragraphs and "- " bullets, no headings, no bold. Under 300 words.
+- minutes_saved: an honest whole-number estimate of the minutes this saves the person.
+
+Gmail and Google Calendar (the person approves before anything is saved there):
+Today is ${todayText()}.
+- Only if the task asks for an email, add "email": {"to": [], "subject": "...", "body": "..."}. "to" lists only email addresses the person typed, otherwise []. body is the plain-text email, the same text as in result.
+- Only if the task asks to schedule a meeting, call or appointment, or to put something in the calendar, add "event": {"title": "...", "date": "YYYY-MM-DD", "start": "HH:MM", "end": "HH:MM", "location": "", "notes": ""}. Use the day and time the person gave, working out words like "tomorrow" from today. Use 24-hour times. Leave start and end "" for an all-day item. If no day was given, leave out "event" and say in your_part that a day is needed. Put names of other people in notes.
+
+Reply with only a JSON object:
+{"result": "...", "your_part": "...", "needs_ok": false, "ok_label": "", "minutes_saved": 15}
+(plus "email" and/or "event" only when they apply)
+your_part: what the person still has to do, in 1 to 3 short lines, or "" if nothing.
+ok_label: a 2 to 5 word name for the draft, like "Email to landlord", or "" if needs_ok is false.`;
+    const out = await sample.json(prompt, { cache: false, signal: ctl.signal });
+    const result = cleanText(out && out.result, 6000);
+    if (!result) throw { code: "invalid_json" };
+    const email = cleanEmail(out.email), event = cleanEvent(out.event);
+    return {
+      result,
+      yourPart: cleanText(out.your_part, 600),
+      needsOk: out.needs_ok === true || !!email || !!event,
+      okLabel: cleanText(out.ok_label, 60),
+      minutes: Math.max(0, Math.min(600, Math.round(Number(out.minutes_saved) || 0))),
+      email, event
+    };
+  }
+
+  /* ---------- Gmail + Calendar ---------- */
+  const two = n => String(n).padStart(2, "0");
+  const ymd = d => d.getFullYear() + "-" + two(d.getMonth() + 1) + "-" + two(d.getDate());
+  function todayText() {
+    const d = new Date();
+    let tz = ""; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (e) {}
+    return d.toLocaleDateString("en-GB", { weekday: "long" }) + " " + ymd(d) + ", " + two(d.getHours()) + ":" + two(d.getMinutes()) + (tz ? " (" + tz + ")" : "");
+  }
+  function cleanEmail(e) {
+    if (!e || typeof e !== "object") return null;
+    const body = cleanText(e.body, 8000);
+    if (!body) return null;
+    const to = (Array.isArray(e.to) ? e.to : []).map(x => String(x).trim()).filter(x => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x)).slice(0, 10);
+    return { to, subject: cleanText(e.subject, 200), body };
+  }
+  function cleanEvent(e) {
+    if (!e || typeof e !== "object") return null;
+    const date = String(e.date || "");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+    const time = v => (/^\d{2}:\d{2}$/.test(String(v || "")) ? String(v) : "");
+    return { title: cleanText(e.title, 200) || "Event", date, start: time(e.start), end: time(e.end),
+      location: cleanText(e.location, 200), notes: cleanText(e.notes, 2000) };
+  }
+  function eventInput(ev) {
+    const input = { summary: ev.title, notificationLevel: "NONE" };
+    if (!ev.start) {
+      const d = new Date(ev.date + "T00:00:00"); d.setDate(d.getDate() + 1);
+      Object.assign(input, { allDay: true, startTime: ev.date + "T00:00:00", endTime: ymd(d) + "T00:00:00" });
+    } else {
+      let end = ev.end;
+      if (!end || end <= ev.start) {
+        const [hh, mm] = ev.start.split(":").map(Number); const m = Math.min(hh * 60 + mm + 60, 23 * 60 + 59);
+        end = two(Math.floor(m / 60)) + ":" + two(m % 60);
+      }
+      Object.assign(input, { startTime: ev.date + "T" + ev.start + ":00", endTime: ev.date + "T" + end + ":00" });
+    }
+    if (ev.location) input.location = ev.location;
+    if (ev.notes) input.description = ev.notes;
+    return input;
+  }
+  function eventWhen(ev) {
+    const d = new Date(ev.date + "T00:00:00");
+    const day = d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+    return day + (ev.start ? ", " + ev.start + (ev.end ? " to " + ev.end : "") : ", all day");
+  }
+  function safeLink(url, host) {
+    try { return typeof url === "string" && url.startsWith("https://") && host.test(new URL(url).hostname) ? url : ""; } catch (e) { return ""; }
+  }
+  function approveLabel(t) {
+    if (t.email && t.event) return "Save to Gmail + Calendar";
+    if (t.email) return "Save draft to Gmail";
+    if (t.event) return "Add to Calendar";
+    return "Approve";
+  }
+  function mcpMessage(e, where) {
+    const code = e && e.code;
+    if (code === "needs_reauth" || code === "server_not_connected" || code === "server_not_found")
+      return where + " isn't connected. Connect it in your claude.ai settings, then click again.";
+    if (code === "not_granted" || code === "consent_required" || code === "approval_required")
+      return "The page wasn't allowed to use " + where + ". Click again to allow it.";
+    if (code === "rate_limited") return where + " is busy. Try again in a minute.";
+    return where + " couldn't save it. Check the details and try again.";
+  }
+
+  async function runChecker(t, work) {
+    const prompt =
+`You are the Checker in a personal to-do helper. Check the Doer's work on one task. Be fair but strict.
+
+Task: ${JSON.stringify(t.title)}
+What the person typed: ${JSON.stringify(t.text)}
+Pile: ${PILES[t.pile].name}. ${PILE_RULE[t.pile]}
+
+Doer's result:
+${work.result}
+
+Doer's "your part" for the person: ${JSON.stringify(work.yourPart)}
+Doer marked it as needing the person's OK before it goes out: ${work.needsOk}
+Gmail draft to save after the person approves: ${work.email ? JSON.stringify(work.email) : "none"}
+Calendar event to add after the person approves: ${work.event ? JSON.stringify(work.event) : "none"}
+Today is ${todayText()}. If there is an event, its day and time must match what the person asked for.
+
+Pass it only if all of these are true:
+- It does what the task asked, for this pile.
+- It is useful and ready to use. Placeholders like [date] are fine.
+- It does not claim to have sent, booked, paid, called or looked anything up online.
+- Nothing is unsafe, and nothing made up is presented as fact.
+Also set needs_ok to true if the result is meant to go to another person or a service.
+
+Reply with only a JSON object: {"pass": true, "note": "", "needs_ok": false}
+If pass is false, note says in one or two sentences what to fix.`;
+    const out = await sample.json(prompt, { cache: false, signal: ctl.signal });
+    return { pass: !!(out && out.pass === true), note: cleanText(out && out.note, 400), needsOk: !!(out && out.needs_ok === true) };
+  }
+
+  async function processTask(t) {
+    if (stopReason) return;
+    busy.add(t.id);
+    let fix = "";
+    try {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        t.status = "doing"; t.note = ""; save(t);
+        helperStart("doer", t, attempt ? "Redoing: " + t.title : t.title);
+        let work;
+        try { work = await runDoer(t, fix); }
+        finally { helperEnd("doer", t, "Finished #" + pad(t.num)); }
+        if (t.reminderDone && work.event) work.event = null;
+        Object.assign(t, work);
+        if (!t.minutesEdited) t.minutes = work.minutes;
+        t.status = "checking"; save(t);
+        helperStart("checker", t, t.title);
+        let chk;
+        try { chk = await runChecker(t, work); }
+        finally { helperEnd("checker", t, "Checked #" + pad(t.num)); }
+        if (chk.pass) {
+          t.needsOk = t.needsOk || chk.needsOk;
+          t.status = t.needsOk ? "needs_ok" : (t.pile === "agent" ? "done" : "your_turn");
+          t.finishedAt = Date.now();
+          save(t); return "ok";
+        }
+        fix = chk.note || "Make it match the task more closely.";
+      }
+      t.status = "flagged"; t.note = "The Checker wasn't happy: " + fix; save(t);
+      return "flagged";
+    } catch (e) {
+      const code = e && e.code;
+      t.status = "queued";
+      if (code === "cancelled") { t.note = ""; }
+      else if (code === "refused") { t.status = "flagged"; t.note = "Claude couldn't help with this one. Try rewording it."; }
+      else if (HARD_STOP.has(code) || code === "rate_limited") { stopReason = code; t.note = ""; }
+      else t.note = "Couldn't finish this time. Press Get it Done to try again.";
+      save(t); return "error";
+    } finally { busy.delete(t.id); }
+  }
+
+  async function pool(items, n, fn) {
+    const results = []; let i = 0;
+    const worker = async () => { while (i < items.length && !stopReason && !ctl.signal.aborted) { const it = items[i++]; results.push(await fn(it)); } };
+    await Promise.all(Array.from({ length: Math.min(n, items.length) }, worker));
+    return results;
+  }
+
+  function stopMessage(code) {
+    if (code === "rate_limited") return "You've reached your Claude usage limit for now. Try again a bit later.";
+    if (code === "not_granted") return "This page isn't allowed to use Claude. Allow it from the page's permissions, then press Get it Done.";
+    if (code === "session_expired") return "Your Claude session has expired. Sign in again, then press Get it Done.";
+    return "Claude isn't available for this account right now.";
+  }
+
+  async function getItDone() {
+    if (running) { ctl && ctl.abort(); return; }
+    if (!sample) { toast("Open this page on claude.ai to let the helpers work."); return; }
+    for (const t of tasks.values()) if ((t.status === "doing" || t.status === "checking") && !busy.has(t.id)) { t.status = "queued"; save(t); }
+    const waiting = [...tasks.values()].filter(t => t.status === "inbox" || t.status === "queued");
+    if (!waiting.length) { toast("Nothing waiting. Add a task first."); return; }
+    running = true; stopReason = null; ctl = new AbortController(); render();
+    const tally = { ok: 0, flagged: 0, error: 0 };
+    try {
+      // Each round: sort what's new, then Doer (2 at a time) and Checker work side by side.
+      // Another round only runs if new tasks were added while the helpers worked.
+      const tried = new Set();
+      for (let round = 0; round < 5 && !stopReason && !ctl.signal.aborted; round++) {
+        const inbox = [...tasks.values()].filter(t => t.status === "inbox" && !tried.has(t.id)).sort((a, b) => a.num - b.num).slice(0, 20);
+        inbox.forEach(t => tried.add(t.id));
+        if (inbox.length) await runSorter(inbox);
+        await syncReminders();
+        const queue = [...tasks.values()].filter(t => t.status === "queued").sort((a, b) => a.num - b.num);
+        if (!queue.length && !inbox.length) break;
+        const res = await pool(queue, 2, processTask);
+        for (const r of res) tally[r] = (tally[r] || 0) + 1;
+      }
+      const unsorted = [...tasks.values()].filter(t => t.status === "inbox" && tried.has(t.id)).length;
+      if (unsorted) say("bot", plural(unsorted, "task") + " couldn't be sorted. Try rewording, then press Get it Done.");
+    } catch (e) {
+      const code = e && e.code;
+      if (HARD_STOP.has(code) || code === "rate_limited") stopReason = code;
+      else if (code !== "cancelled") say("bot", "The Sorter couldn't finish. Press Get it Done to try again.");
+    } finally {
+      running = false;
+      const stopped = ctl.signal.aborted;
+      helpers.sorter.clear(); helpers.doer.clear(); helpers.checker.clear();
+      render();
+      if (stopReason) { say("bot", stopMessage(stopReason)); }
+      else if (stopped) { say("bot", "Stopped. Unfinished tasks are back in their piles."); }
+      else {
+        const ok = [...tasks.values()].filter(t => t.status === "needs_ok").length;
+        const parts = [plural(tally.ok, "task") + " finished and checked"];
+        if (ok) parts.push(ok + " waiting for your OK");
+        if (tally.flagged) parts.push(tally.flagged + " need a look");
+        if (tally.error) parts.push(tally.error + " couldn't finish");
+        say("bot", parts.join(", ") + ".");
+      }
+    }
+  }
+
+  /* ---------- Rendering ---------- */
+  function statusPill(t) {
+    const [label, tone] = STATUS[t.status] || STATUS.inbox;
+    return h("span", { class: "pill " + tone }, h("span", { class: "dot" }), label);
+  }
+  function copy(text, btn) {
+    const done = () => { const o = btn.textContent; btn.textContent = "Copied"; setTimeout(() => (btn.textContent = o), 1400); };
+    try {
+      navigator.clipboard.writeText(text).then(done, () => fallbackCopy(text, done));
+    } catch (e) { fallbackCopy(text, done); }
+  }
+  function fallbackCopy(text, done) {
+    const ta = h("textarea", { style: "position:fixed;opacity:0" }); ta.value = text; document.body.append(ta); ta.select();
+    try { document.execCommand("copy"); done(); } catch (e) { toast("Select the text and copy it by hand."); }
+    ta.remove();
+  }
+
+  function optionsRow(t) {
+    const sel = (id, label, value, options, onChange) => {
+      const s = h("select", { id, class: "hold" }, options.map(([v, l]) => h("option", { value: v, selected: v === value, text: l })));
+      s.addEventListener("change", () => onChange(s.value));
+      s.addEventListener("blur", () => { if (pendingRender) render(); });
+      return h("label", { class: "opt", for: id }, label, s);
+    };
+    const pileSel = sel("pile-" + t.id, "Pile", t.pile, Object.entries(PILES).map(([k, p]) => [k, p.name]), v => {
+      if (!PILES[v] || v === t.pile) return;
+      t.pile = v; t.order = null;
+      if (t.status === "done" || t.status === "your_turn") t.status = v === "agent" ? "done" : "your_turn";
+      save(t); render(true); toast("Moved to " + PILES[v].name + ".");
+    });
+    const areaSel = sel("area-" + t.id, "Life area", t.area, AREAS.map(a => [a, a[0].toUpperCase() + a.slice(1)]), v => {
+      if (!AREAS.includes(v) || v === t.area) return;
+      t.area = v; save(t); render(true); toast("Life area changed to " + v + ".");
+    });
+    const dueIn = h("input", { id: "due-" + t.id, class: "hold", type: "date", value: t.due || "" });
+    dueIn.addEventListener("change", () => {
+      const v = dueIn.value; t.due = DATE_RE.test(v) ? v : ""; t.dueAuto = false; save(t); render(true);
+      if (t.reminderDone) toast("The reminder is already in Google Calendar. Change its day there.");
+      else if (t.due && t.time) ensureReminder(t, true);
+      else toast(t.due ? dueText(t.due) + "." : "Due date cleared.");
+    });
+    dueIn.addEventListener("blur", () => { if (pendingRender) render(); });
+    const timeIn = h("input", { id: "time-" + t.id, class: "hold", type: "time", value: t.time || "" });
+    timeIn.addEventListener("change", () => {
+      const v = timeIn.value; t.time = TIME_RE.test(v) ? v : ""; remFailed.delete(t.id); save(t); render(true);
+      if (t.reminderDone) toast("The reminder is already in Google Calendar. Change its time there.");
+      else if (t.time && t.due) ensureReminder(t, true);
+      else if (t.time) toast("Add a due date too, then the reminder goes into Google Calendar.");
+    });
+    timeIn.addEventListener("blur", () => { if (pendingRender) render(); });
+    return h("div", { class: "opts" }, pileSel, areaSel, h("label", { class: "opt", for: "due-" + t.id }, "Due date", dueIn), h("label", { class: "opt", for: "time-" + t.id }, "Time", timeIn));
+  }
+
+  function editForm(t) {
+    const title = h("input", { id: "et-" + t.id, class: "edit-field hold", type: "text", value: t.title || t.text, maxlength: "120", "aria-label": "Task name" });
+    const kids = [h("div", { class: "block" }, h("span", { class: "eyebrow", text: "Task name" }), title)];
+    let body = null;
+    if (t.result) {
+      body = h("textarea", { id: "er-" + t.id, class: "edit-field hold", "aria-label": "What the agent made" });
+      body.value = t.result;
+      kids.push(h("div", { class: "block" }, h("span", { class: "eyebrow", text: "What the agent made" }), body));
+      if (t.gmailDone) kids.push(h("p", { class: "wrote", text: "The Gmail draft is already saved. Changes here won't reach it, so edit it in Gmail too." }));
+    }
+    const doSave = () => {
+      t.title = title.value.trim().slice(0, 120) || t.title;
+      if (body) {
+        t.result = body.value.trim().slice(0, 8000) || t.result;
+        if (t.email && !t.gmailDone) t.email.body = t.result;
+      }
+      editing = null; save(t); render(true); toast("Saved your changes.");
+    };
+    kids.push(h("div", { class: "btns" },
+      h("button", { class: "btn primary", type: "button", text: "Save changes", onclick: doSave }),
+      h("button", { class: "btn", type: "button", text: "Cancel", onclick: () => { editing = null; render(true); } })));
+    return h("div", { class: "detail" }, kids);
+  }
+
+  function detail(t) {
+    const isBusy = busy.has(t.id);
+    if (editing === t.id && !isBusy) return editForm(t);
+    const kids = [];
+    if (t.text && t.text !== t.title) kids.push(h("p", { class: "wrote", text: "You wrote: " + t.text }));
+    if (!isBusy && t.pile) kids.push(optionsRow(t));
+    if (t.note) kids.push(h("p", { class: "note", text: t.note }));
+    if (t.reminderNote && !t.reminderDone) kids.push(h("p", { class: "note", text: "Reminder not added: " + t.reminderNote }));
+    const k = kinds(t); if (k) kids.push(k);
+    if (t.result) {
+      const copyBtn = h("button", { class: "btn", type: "button", text: "Copy" });
+      copyBtn.addEventListener("click", () => copy(t.result, copyBtn));
+      kids.push(h("div", { class: "block" }, h("span", { class: "eyebrow", text: "What the agent made" }), h("pre", { class: "result", text: t.result }), h("div", { class: "btns" }, copyBtn)));
+    }
+    if (t.yourPart) kids.push(h("div", { class: "block" }, h("span", { class: "eyebrow", text: "Your part" }), h("p", { class: "yours", text: t.yourPart })));
+    if (t.result) {
+      const inp = h("input", { id: "min-" + t.id, class: "min-input hold", type: "number", min: "0", max: "600", step: "5", value: String(t.minutes || 0), "aria-label": "Minutes saved" });
+      inp.addEventListener("change", () => { t.minutes = Math.max(0, Math.min(600, Math.round(Number(inp.value) || 0))); t.minutesEdited = true; save(t); toast("Time saved updated."); });
+      inp.addEventListener("blur", () => { if (pendingRender) render(); });
+      kids.push(h("label", { class: "minrow", for: "min-" + t.id }, "Time saved", inp, "min"));
+    }
+    const btns = [];
+    if (!isBusy && t.status === "needs_ok") btns.push(h("button", { class: "btn primary", type: "button", onclick: e => approve(t, e.currentTarget), text: approveLabel(t) }));
+    btns.push(...links(t));
+    if (t.time && t.due && !t.reminderDone && t.status !== "complete" && !remBusy.has(t.id) && !remPast(t))
+      btns.push(h("button", { class: "btn", type: "button", text: "Add reminder to Calendar", onclick: () => { remFailed.delete(t.id); ensureReminder(t, true); } }));
+    if (!isBusy && t.status !== "complete" && t.status !== "inbox") btns.push(h("button", { class: "btn" + (t.status === "needs_ok" ? "" : " primary"), type: "button", onclick: () => markComplete(t), text: "Mark complete" }));
+    if (!isBusy && t.status === "complete") btns.push(h("button", { class: "btn", type: "button", onclick: () => reopen(t), text: "Reopen" }));
+    if (!isBusy && t.pile && t.status !== "inbox" && !running) btns.push(h("button", { class: "btn", type: "button", onclick: () => { editing = null; Object.assign(t, { status: "queued", result: "", yourPart: "", needsOk: false, okLabel: "", note: "", email: null, event: null, gmailDone: false, gmailUrl: "", calendarDone: false, calendarUrl: "" }); save(t); toast("Queued again. Press Get it Done."); }, text: "Redo" }));
+    if (!isBusy) {
+      const del = h("button", { class: "btn warn" + (armed === t.id ? " armed" : ""), type: "button", text: armed === t.id ? "Click again to delete" : "Delete" });
+      del.addEventListener("click", () => { if (armed === t.id) { armed = null; open = null; remove(t); toast("Deleted."); } else { armed = t.id; render(); } });
+      btns.push(del);
+    }
+    kids.push(h("div", { class: "btns" }, btns));
+    return h("div", { class: "detail" }, kids);
+  }
+
+  // Approve is the only place anything reaches Gmail or Calendar. Emails stay drafts; events invite nobody.
+  async function approve(t, btn) {
+    if (t.email || t.event) {
+      if (!mcp) { toast("Gmail and Calendar only work when this page is open on claude.ai."); return; }
+      if (btn) { btn.disabled = true; btn.textContent = "Saving…"; }
+      let where = "Gmail";
+      try {
+        if (t.email && !t.gmailDone) {
+          const input = { subject: t.email.subject, body: t.email.body };
+          if (t.email.to.length) input.to = t.email.to;
+          const r = await mcp.callTool("Gmail", "create_draft", input);
+          const p = (r && r.payload) || {};
+          t.gmailDone = true; t.gmailUrl = safeLink(p.viewUrl, /(^|\.)google\.com$/); save(t);
+        }
+        where = "Google Calendar";
+        if (t.event && !t.calendarDone) {
+          const r = await mcp.callTool("Google Calendar", "create_event", eventInput(t.event));
+          const p = (r && r.payload) || {};
+          t.calendarDone = true; t.calendarUrl = safeLink(p.htmlLink || (p.event && p.event.htmlLink), /(^|\.)google\.com$/); save(t);
+        }
+      } catch (e) {
+        toast(mcpMessage(e, where));
+        if (btn) { btn.disabled = false; btn.textContent = approveLabel(t); }
+        render(); return;
+      }
+    }
+    t.status = "approved"; save(t);
+    const bits = [];
+    if (t.email) bits.push("Draft saved in Gmail, not sent");
+    if (t.event) bits.push("added to your calendar, no invites sent");
+    toast(bits.length ? bits.join(", ") + "." : "Approved. Nothing was sent: copy it and send it yourself.");
+  }
+  function kinds(t) {
+    const out = [];
+    if (t.email) out.push(h("span", { class: "kind mail", text: "Gmail draft" + (t.email.to.length ? " to " + t.email.to.join(", ") : "") + (t.gmailDone ? " · saved" : "") }));
+    if (t.event) out.push(h("span", { class: "kind cal", text: "Calendar · " + eventWhen(t.event) + (t.calendarDone ? " · added" : "") }));
+    if (t.time && t.due) out.push(h("span", { class: "kind rem", text: "Reminder · " + reminderWhen(t) + (t.reminderDone ? " · in Google Calendar" : remBusy.has(t.id) ? " · adding…" : " · not added yet") }));
+    return out.length ? h("div", { class: "kinds" }, out) : null;
+  }
+  function links(t) {
+    const out = [];
+    if (t.gmailUrl) out.push(h("a", { class: "btn", href: t.gmailUrl, target: "_blank", rel: "noopener", text: "Open draft in Gmail" }));
+    if (t.calendarUrl) out.push(h("a", { class: "btn", href: t.calendarUrl, target: "_blank", rel: "noopener", text: "Open in Calendar" }));
+    if (t.reminderUrl) out.push(h("a", { class: "btn", href: t.reminderUrl, target: "_blank", rel: "noopener", text: "Open reminder" }));
+    return out;
+  }
+
+  // Each card has a tick, Open reminder and Edit right on it, so you don't need to open the task.
+  function card(t, idx, list) {
+    const isOpen = open === t.id, isBusy = busy.has(t.id), isDone = t.status === "complete";
+    const isEditing = cardEdit === t.id && !isBusy;
+    const tick = h("button", { class: "tick", type: "button", disabled: isBusy,
+      "aria-label": (isDone ? "Put back on the list: " : "Mark complete: ") + (t.title || t.text), text: isDone ? "✓" : "",
+      onclick: () => (isDone ? reopen(t) : markComplete(t)) });
+    if (isDone) tick.classList.add("on");
+    const acts = [];
+    if (!isDone && list) {
+      const canUp = idx > 0, canDown = idx < list.length - 1 && list[idx + 1].status !== "complete";
+      acts.push(h("span", { class: "mvs" },
+        h("button", { id: "mvu-" + t.id, class: "btn mv", type: "button", disabled: !canUp, "aria-label": "Move up: " + (t.title || t.text), text: "↑", onclick: () => move(t, -1) }),
+        h("button", { id: "mvd-" + t.id, class: "btn mv", type: "button", disabled: !canDown, "aria-label": "Move down: " + (t.title || t.text), text: "↓", onclick: () => move(t, 1) })));
+    }
+    if (!isDone && t.reminderUrl) acts.push(h("a", { class: "btn", href: t.reminderUrl, target: "_blank", rel: "noopener", text: "Open reminder" }));
+    if (!isBusy) acts.push(h("button", { class: "btn", type: "button", "aria-expanded": String(isEditing), text: isEditing ? "Close" : "Edit",
+      onclick: () => { cardEdit = isEditing ? null : t.id; ledgerEdit = null; render(true); if (!isEditing) document.getElementById("ce-title-" + t.id)?.focus(); } }));
+    return h("article", { class: "task s-" + t.status + (isOpen ? " open" : "") },
+      h("div", { class: "card-top" }, tick, h("button", { class: "task-head", type: "button", "aria-expanded": String(isOpen), onclick: () => { open = isOpen ? null : t.id; armed = null; editing = null; render(true); } },
+        h("span", { class: "t" }, h("span", { class: "num", text: "#" + pad(t.num) }), h("span", { class: "title", text: t.title || t.text })),
+        h("span", { class: "meta" },
+          t.area ? h("span", { class: "area", text: t.area }) : null,
+          statusPill(t),
+          dueChip(t),
+          SAVED.has(t.status) && t.minutes ? h("span", { class: "mins", text: "+" + t.minutes + " min" }) : null))),
+      acts.length ? h("div", { class: "card-acts" }, acts) : null,
+      isEditing ? h("div", { class: "card-edit" }, rowEditForm(t, "ce")) : null,
+      isOpen ? detail(t) : null);
+  }
+
+  const ORDER = { flagged: 0, needs_ok: 1, doing: 2, checking: 2, your_turn: 3, queued: 4, approved: 5, done: 6, complete: 9 };
+  // While you're typing in a task's fields, background updates wait so your typing isn't lost.
+  function render(force) {
+    const ae = document.activeElement;
+    if (!force && ae && ae.classList && ae.classList.contains("hold")) { pendingRender = true; renderTop(); renderNext(); return; }
+    pendingRender = false;
+    renderTop(); renderNext(); renderFilters(); renderInbox(); renderPiles(); renderOk(); renderHelpers(); renderHistory();
+  }
+
+  /* ---------- History: day, week, month, year ---------- */
+  let period = "week";
+  try { period = localStorage.getItem("gid.period") || "week"; } catch (e) {}
+  const PERIODS = [["day", "Today"], ["week", "This week"], ["month", "This month"], ["year", "This year"]];
+  // A task counts as done only once you tick it complete, the same rule as the Done list.
+  const doneTime = t => t.completedAt || t.finishedAt || t.created || 0;
+  function periodStart(p) {
+    const n = new Date(), d = new Date(n.getFullYear(), n.getMonth(), n.getDate());
+    if (p === "week") d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    if (p === "month") d.setDate(1);
+    if (p === "year") { d.setMonth(0); d.setDate(1); }
+    return d;
+  }
+  function buckets(p, start) {
+    const out = [];
+    if (p === "day") for (let i = 0; i < 24; i += 3) out.push({ label: two(i) + ":00", from: new Date(start.getFullYear(), start.getMonth(), start.getDate(), i), to: new Date(start.getFullYear(), start.getMonth(), start.getDate(), i + 3) });
+    if (p === "week") for (let i = 0; i < 7; i++) { const a = new Date(start); a.setDate(a.getDate() + i); const b = new Date(a); b.setDate(b.getDate() + 1); out.push({ label: a.toLocaleDateString(undefined, { weekday: "short" }), from: a, to: b }); }
+    if (p === "month") { const days = new Date(start.getFullYear(), start.getMonth() + 1, 0).getDate(); for (let i = 1; i <= days; i++) out.push({ label: String(i), from: new Date(start.getFullYear(), start.getMonth(), i), to: new Date(start.getFullYear(), start.getMonth(), i + 1) }); }
+    if (p === "year") for (let m = 0; m < 12; m++) out.push({ label: new Date(start.getFullYear(), m, 1).toLocaleDateString(undefined, { month: "short" }), from: new Date(start.getFullYear(), m, 1), to: new Date(start.getFullYear(), m + 1, 1) });
+    return out;
+  }
+  function renderHistory() {
+    $("periods").replaceChildren(...PERIODS.map(([k, label]) => h("button", { class: "chip", type: "button", "aria-pressed": String(period === k),
+      onclick: () => { period = k; try { localStorage.setItem("gid.period", k); } catch (e) {} renderHistory(); } }, label)));
+    const start = periodStart(period).getTime();
+    const done = [...tasks.values()].filter(t => t.status === "complete" && doneTime(t) >= start).sort((a, b) => doneTime(b) - doneTime(a));
+    // All tasks for this range: added in it, or finished in it.
+    // A finished task belongs to the day you finished it. A task that isn't done yet belongs to today,
+    // so anything left over from earlier days rolls forward until you tick it off.
+    const nowTs = Date.now();
+    const dayOf = t => (t.status === "complete" ? doneTime(t) : nowTs);
+    const allIn = [...tasks.values()].filter(t => dayOf(t) >= start);
+    const pct = allIn.length ? Math.round(done.length / allIn.length * 100) : 0, left = allIn.length - done.length;
+    const mins = done.reduce((s, t) => s + (t.minutes || 0), 0), f = fmt(mins);
+    const byPile = k => done.filter(t => t.pile === k).length;
+    const areaCounts = AREAS.map(a => [a, done.filter(t => t.area === a).length]).filter(([, n]) => n).sort((a, b) => b[1] - a[1]);
+    $("histTiles").replaceChildren(
+      h("div", { class: "tile t-blue" }, h("span", { class: "eyebrow", text: "All tasks" }), h("b", { text: String(allIn.length) }),
+        h("p", { text: left ? plural(left, "task") + " still to do" : allIn.length ? "Everything is done" : "Nothing added yet" })),
+      h("div", { class: "tile t-mint" }, h("span", { class: "eyebrow", text: "Completed" }), h("b", { text: done.length + " of " + allIn.length }),
+        h("div", { class: "meter", role: "progressbar", "aria-valuemin": "0", "aria-valuemax": "100", "aria-valuenow": String(pct), "aria-label": "Completed" }, h("i", { style: "width:" + pct + "%" })),
+        h("p", { text: pct + "% done" })),
+      h("div", { class: "tile t-paper" }, h("span", { class: "eyebrow", text: "Time saved" }), h("b", { text: f.v + " " + f.u })),
+      h("div", { class: "tile t-yellow" }, h("span", { class: "eyebrow", text: "Who did it" }),
+        h("p", { text: byPile("agent") + " by the agent · " + byPile("together") + " together · " + byPile("me") + " by you" })),
+      h("div", { class: "tile t-pink" }, h("span", { class: "eyebrow", text: "Life areas" }),
+        h("p", { text: areaCounts.length ? areaCounts.map(([a, n]) => a[0].toUpperCase() + a.slice(1) + " " + n).join(" · ") : "Nothing yet" })));
+    const bs = buckets(period, new Date(start));
+    // Each column pairs all tasks (added or finished in that slot) with the ones completed in it.
+    const inB = (ts, b) => ts >= b.from.getTime() && ts < b.to.getTime();
+    for (const b of bs) {
+      b.n = done.filter(t => inB(doneTime(t), b)).length;
+      b.all = allIn.filter(t => inB(dayOf(t), b)).length;
+    }
+    const max = Math.max(1, ...bs.map(b => b.all));
+    const ht = n => (n ? Math.max(4, Math.round(n / max * 82)) : 3) + "%";
+    const bcol = (cls, n) => h("span", { class: "bcol" }, h("span", { class: "v", text: n ? String(n) : "" }), h("i", { class: cls, style: "height:" + ht(n) }));
+    const chart = $("histChart"); chart.className = "chart p-" + period;
+    chart.replaceChildren(...bs.map(b => h("div", { class: "bar" + (b.all ? "" : " zero"), title: b.label + ": " + b.n + " completed of " + b.all },
+      h("span", { class: "pair" }, bcol("all", b.all), bcol("fin", b.n)),
+      h("span", { class: "lbl", text: b.label }))));
+    if (!allIn.length) { $("histList").replaceChildren(h("div", { class: "empty", text: "Nothing added " + PERIODS.find(p => p[0] === period)[1].toLowerCase() + " yet. Tasks show up here with their status and stay forever." })); return; }
+    const groups = new Map();
+    // Every task, under the day it was finished (if complete) or added, in the same order as the piles above:
+    // Agent does it, then We do it together, then Only I can do it, each in its own order. Unsorted ones last.
+    const pos = new Map(); let k = 0;
+    for (const key of Object.keys(PILES)) for (const x of pileSorted(key)) pos.set(x.id, k++);
+    for (const t of [...allIn].sort((a, b) => (pos.get(a.id) ?? 1e9) - (pos.get(b.id) ?? 1e9) || a.num - b.num)) {
+      const d = new Date(dayOf(t));
+      const isToday = ymd(d) === ymd(new Date(nowTs));
+      const key = period === "year" ? d.toLocaleDateString(undefined, { month: "long", year: "numeric" })
+        : (isToday ? "Today · " : "") + d.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(t);
+    }
+    $("histList").replaceChildren(...[...groups].map(([key, list]) => h("div", { class: "day" },
+      h("div", { class: "day-hd" }, h("h3", { text: key }), h("span", { class: "count", text: list.filter(t => t.status === "complete").length + " of " + plural(list.length, "task") + " done" })),
+      h("ul", null, list.map(t => h("li", { class: "p-" + (t.pile || "agent") + (t.status === "complete" ? " is-done" : "") },
+        h("button", { type: "button", class: "hist-item", onclick: () => showTask(t.id) },
+          h("span", { class: "title", text: t.title || t.text }),
+          statusPill(t),
+          t.area ? h("span", { class: "area", text: t.area }) : null,
+          t.minutes && t.status === "complete" ? h("span", { class: "mins", text: "+" + t.minutes + " min" }) : null)))))));
+  }
+  /* ---------- Calendar reminders for tasks with a time ---------- */
+  // Any task with a day and a clock time gets its own event in Google Calendar, with no guests.
+  const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+  const remBusy = new Set(), remFailed = new Set();
+  const STOP_CODES = new Set(["needs_reauth", "server_not_connected", "server_not_found", "not_granted", "consent_required", "approval_required", "rate_limited"]);
+  const remPast = t => new Date(t.due + "T" + t.time + ":00").getTime() < Date.now();
+  async function ensureReminder(t, manual) {
+    if (!t.time || !t.due || t.reminderDone || remBusy.has(t.id) || t.status === "complete") return "skip";
+    if (remPast(t)) { if (manual) toast("That time has already passed, so no reminder was added."); return "skip"; }
+    if (!mcp) { if (manual) toast("Calendar reminders only work when this page is open on claude.ai."); return "skip"; }
+    remBusy.add(t.id); render();
+    try {
+      const [hh, mm] = t.time.split(":").map(Number), m = Math.min(hh * 60 + mm + 30, 23 * 60 + 59);
+      const end = two(Math.floor(m / 60)) + ":" + two(m % 60);
+      const r = await mcp.callTool("Google Calendar", "create_event", {
+        summary: t.title || t.text,
+        startTime: t.due + "T" + t.time + ":00", endTime: t.due + "T" + end + ":00",
+        description: "Reminder from Get It Done. You wrote: " + t.text,
+        notificationLevel: "NONE",
+        overrideReminders: [{ method: "popup", minutes: 15 }, { method: "popup", minutes: 0 }]
+      });
+      const p = (r && r.payload) || {};
+      Object.assign(t, { reminderDone: true, reminderNote: "", reminderAt: t.due + " " + t.time,
+        reminderUrl: safeLink(p.htmlLink || (p.event && p.event.htmlLink), /(^|\.)google\.com$/) });
+      remBusy.delete(t.id); save(t);
+      if (manual) toast("Reminder added to Google Calendar.");
+      return "ok";
+    } catch (e) {
+      remBusy.delete(t.id); remFailed.add(t.id);
+      t.reminderNote = mcpMessage(e, "Google Calendar"); save(t);
+      if (manual) toast(t.reminderNote);
+      return (e && e.code) || "error";
+    }
+  }
+  async function syncReminders() {
+    const list = [...tasks.values()].filter(t => t.time && t.due && !t.reminderDone && t.status !== "complete" && !remFailed.has(t.id) && !remPast(t));
+    if (!list.length || !mcp) return;
+    let made = 0;
+    for (const t of list) {
+      if (ctl && ctl.signal.aborted) break;
+      const r = await ensureReminder(t);
+      if (r === "ok") made++;
+      else if (STOP_CODES.has(r)) { toast(t.reminderNote); break; }
+    }
+    if (made) toast(plural(made, "reminder") + " added to Google Calendar.");
+  }
+  function reminderWhen(t) {
+    const d = new Date(t.due + "T00:00:00");
+    return d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" }) + ", " + t.time;
+  }
+
+  /* ---------- Due dates + up next ---------- */
+  const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+  function dueDays(due) {
+    if (!due || !DATE_RE.test(due)) return null;
+    const n = new Date(), today = new Date(n.getFullYear(), n.getMonth(), n.getDate());
+    return Math.round((new Date(due + "T00:00:00") - today) / 864e5);
+  }
+  function dueText(due) {
+    const d = dueDays(due); if (d == null) return "";
+    if (d < 0) return "Overdue by " + plural(-d, "day");
+    if (d === 0) return "Due today";
+    if (d === 1) return "Due tomorrow";
+    const date = new Date(due + "T00:00:00");
+    return "Due " + (d < 7 ? date.toLocaleDateString(undefined, { weekday: "long" }) : date.toLocaleDateString(undefined, { day: "numeric", month: "short" }));
+  }
+  function dueChip(t) {
+    const d = dueDays(t.due);
+    if (d == null || t.status === "complete") return null;
+    return h("span", { class: "due" + (d < 0 ? " late" : d <= 1 ? " soon" : ""), text: dueText(t.due) + (t.time ? ", " + t.time : "") });
+  }
+  const NEXT_RANK = { needs_ok: 0, flagged: 1, your_turn: 2, approved: 3, done: 4, queued: 5 };
+  const NEXT_WHY = {
+    needs_ok: "Waiting for your OK before it goes anywhere.",
+    flagged: "The Checker wants you to take a look.",
+    your_turn: "The agent did its part. Yours is ready.",
+    approved: "Approved. Send it yourself, then mark it complete.",
+    done: "Finished by the agent. Read it and mark it complete.",
+    queued: "Press Get it Done to start it."
+  };
+  function pickNext() {
+    // Soonest day first; on that day timed tasks lead, earliest time first, and one whose time has passed
+    // stays up next until you complete it. Then what needs you most, then your arrow order, then the task added first.
+    const now = new Date(), nowMin = now.getHours() * 60 + now.getMinutes();
+    const key = t => {
+      const d = dueDays(t.due), urgent = d != null && d <= 1;
+      const mins = t.time ? Number(t.time.slice(0, 2)) * 60 + Number(t.time.slice(3, 5)) : null;
+      const timed = urgent && mins != null;
+      return [urgent ? 0 : 1, urgent ? d : 0, timed ? 0 : 1, timed ? mins : 0, NEXT_RANK[t.status],
+        d == null ? 9999 : d, t.order ?? 1e9, t.num || 0];
+    };
+    const list = [...tasks.values()].filter(t => t.status in NEXT_RANK && !busy.has(t.id));
+    list.sort((a, b) => { const x = key(a), y = key(b); for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return x[i] - y[i]; return 0; });
+    return list[0] || null;
+  }
+  function renderNext() {
+    const el = $("next"), t = pickNext();
+    el.hidden = !t;
+    if (!t) { el.replaceChildren(); return; }
+    const late = t.time && (dueDays(t.due) < 0 || (dueDays(t.due) === 0 && t.time < two(new Date().getHours()) + ":" + two(new Date().getMinutes())));
+    const due = late ? "Was due " + (dueDays(t.due) === 0 ? "at " + t.time : dueText(t.due).replace(/^Overdue by /, "") + " ago, " + t.time) + " and isn't done yet"
+      : dueText(t.due) + (t.due && t.time ? ", " + t.time : "");
+    el.replaceChildren(
+      h("span", { class: "tagline", text: "Up next" }),
+      h("div", { class: "what" }, h("b", { text: t.title || t.text }), h("span", { class: "why", text: (due ? due + ". " : "") + NEXT_WHY[t.status] })),
+      h("button", { class: "btn primary", type: "button", text: "Open it", onclick: () => showTask(t.id) }));
+  }
+  function showTask(id) {
+    open = id; filter = "all"; render(true);
+    document.querySelector(".task.open")?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  /* ---------- Done and still to do ---------- */
+  function markComplete(t) { if (t.status !== "complete") t.prevStatus = t.status; t.status = "complete"; t.completedAt = Date.now(); save(t); toast("Marked complete. It stays in your history."); }
+  // Reopening puts a task back exactly where it was: waiting for your OK, approved, or your turn.
+  function reopen(t) {
+    const prev = t.prevStatus;
+    let s;
+    if (prev && STATUS[prev] && !["complete", "doing", "checking"].includes(prev)) s = prev;
+    else if (t.needsOk && (t.gmailDone || t.calendarDone)) s = "approved";
+    else if (t.needsOk && t.result) s = "needs_ok";
+    else s = t.result ? (t.pile === "agent" ? "done" : "your_turn") : (t.pile ? "queued" : "inbox");
+    t.status = s; t.completedAt = null; t.prevStatus = null; save(t);
+    toast(s === "needs_ok" ? "Back in Waiting for your OK." : s === "approved" ? "Back on your list. The draft is still in Gmail." : "Back on your list.");
+  }
+  // Edit form on a task card: name, day, time, pile and life area in one go.
+  function rowEditForm(t, prefix) {
+    const id = s => (prefix || "le") + "-" + s + "-" + t.id;
+    const f = {
+      title: h("input", { id: id("title"), class: "edit-field hold", type: "text", maxlength: "120", value: t.title || t.text }),
+      due: h("input", { id: id("due"), class: "hold", type: "date", value: t.due || "" }),
+      time: h("input", { id: id("time"), class: "hold", type: "time", value: t.time || "" })
+    };
+    const opts = [h("label", { class: "opt", for: id("due") }, "Due date", f.due), h("label", { class: "opt", for: id("time") }, "Time", f.time)];
+    if (t.pile) {
+      f.pile = h("select", { id: id("pile"), class: "hold" }, Object.entries(PILES).map(([k, p]) => h("option", { value: k, selected: k === t.pile, text: p.name })));
+      f.area = h("select", { id: id("area"), class: "hold" }, AREAS.map(a => h("option", { value: a, selected: a === t.area, text: a[0].toUpperCase() + a.slice(1) })));
+      opts.unshift(h("label", { class: "opt", for: id("pile") }, "Pile", f.pile), h("label", { class: "opt", for: id("area") }, "Life area", f.area));
+    }
+    f.title.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); saveRowEdit(t, f); } });
+    return h("div", { class: "row-edit" },
+      h("label", { class: "opt", for: id("title") }, "Task name", f.title),
+      h("div", { class: "opts" }, opts),
+      t.reminderDone ? h("p", { class: "wrote", text: "This task already has a reminder in Google Calendar. If you change the day or time here, change it there too." }) : null,
+      h("div", { class: "btns" },
+        h("button", { class: "btn primary", type: "button", text: "Save changes", onclick: () => saveRowEdit(t, f) }),
+        h("button", { class: "btn", type: "button", text: "Cancel", onclick: () => { ledgerEdit = null; cardEdit = null; render(true); } })));
+  }
+  function saveRowEdit(t, f) {
+    const title = f.title.value.trim().slice(0, 120);
+    if (title) t.title = title;
+    const due = DATE_RE.test(f.due.value) ? f.due.value : "", time = TIME_RE.test(f.time.value) ? f.time.value : "";
+    const whenChanged = due !== (t.due || "") || time !== (t.time || "");
+    if (due !== (t.due || "")) t.dueAuto = false;
+    t.due = due; t.time = time;
+    if (f.pile && PILES[f.pile.value] && f.pile.value !== t.pile) {
+      t.pile = f.pile.value; t.order = null;
+      if (t.status === "done" || t.status === "your_turn") t.status = t.pile === "agent" ? "done" : "your_turn";
+    }
+    if (f.area && AREAS.includes(f.area.value)) t.area = f.area.value;
+    ledgerEdit = null; cardEdit = null; remFailed.delete(t.id); save(t); render(true);
+    if (whenChanged && t.reminderDone) toast("Saved. The reminder in Google Calendar keeps its old time, so change it there.");
+    else if (whenChanged && t.time && t.due && t.status !== "complete") ensureReminder(t, true);
+    else toast("Saved your changes.");
+  }
+  function renderTop() {
+    const all = [...tasks.values()];
+    // Same rule as the "This week" tab in history: from Monday, by the time a task was done.
+    const weekStart = periodStart("week").getTime();
+    const week = all.filter(t => t.status === "complete" && doneTime(t) >= weekStart);
+    const f = fmt(week.reduce((s, t) => s + (t.minutes || 0), 0));
+    $("weekDone").textContent = week.length + " done";
+    $("weekMin").textContent = f.v + " " + f.u;
+    const waiting = all.filter(t => t.status === "inbox" || t.status === "queued").length;
+    const go = $("go");
+    go.classList.toggle("running", running);
+    $("goLabel").textContent = running ? "Stop" : "Get it Done";
+    let msg;
+    if (running) msg = "The helpers are on it. Watch them work below.";
+    else if (statusMsg) msg = statusMsg;
+    else if (waiting) msg = plural(waiting, "task") + " on the list, ready to go.";
+    else msg = all.length ? "All caught up. Add more any time." : "Nothing on the list yet.";
+    $("statusText").textContent = msg;
+    $("status").classList.toggle("live", running || waiting > 0);
+  }
+  let userName = "", dayKey = "";
+  function renderGreeting(name) {
+    if (name != null) userName = name; name = userName; dayKey = ymd(new Date());
+    const d = new Date(), hr = d.getHours();
+    $("date").textContent = d.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+    $("hello").textContent = hr < 12 ? "Good morning" : hr < 18 ? "Good afternoon" : "Good evening";
+    if (name) { $("name").textContent = name; $("nameWrap").hidden = false; }
+  }
+  function renderFilters() {
+    const all = [...tasks.values()];
+    const opts = [["all", "All", all.length], ...AREAS.map(a => [a, a[0].toUpperCase() + a.slice(1), all.filter(t => t.area === a).length])];
+    $("filters").replaceChildren(...opts.map(([k, label, n]) => h("button", { class: "chip", type: "button", "aria-pressed": String(filter === k),
+      onclick: () => { filter = k; try { localStorage.setItem("gid.filter", k); } catch (e) {} render(); } }, label, h("span", { class: "n", text: String(n) }))));
+  }
+  function renderInbox() {
+    const inbox = [...tasks.values()].filter(t => t.status === "inbox").sort((a, b) => a.num - b.num);
+    const el = $("inbox"); el.hidden = !inbox.length;
+    el.replaceChildren(...inbox.map(t => h("span", { class: "tag", title: t.text },
+      h("span", { class: "tag-text", text: t.text }),
+      running ? null : h("button", { class: "x", type: "button", "aria-label": "Remove " + t.text, text: "×", onclick: () => remove(t) }))));
+  }
+  /* ---------- Your own order in each pile ---------- */
+  // New tasks sit at the top in the usual order; once you move a task, its place is remembered. Finished tasks stay at the bottom.
+  const autoCmp = (a, b) => (ORDER[a.status] ?? 5) - (ORDER[b.status] ?? 5) || (dueDays(a.due) ?? 9999) - (dueDays(b.due) ?? 9999) || b.num - a.num;
+  function pileSorted(key) {
+    return [...tasks.values()].filter(t => t.pile === key).sort((a, b) =>
+      (a.status === "complete") - (b.status === "complete") ||
+      (a.order == null ? 0 : 1) - (b.order == null ? 0 : 1) ||
+      (a.order != null && b.order != null ? a.order - b.order : 0) ||
+      autoCmp(a, b));
+  }
+  function move(t, dir) {
+    const full = pileSorted(t.pile).filter(x => x.status !== "complete");
+    const visible = full.filter(x => filter === "all" || x.area === filter);
+    const i = visible.indexOf(t), other = visible[i + dir];
+    if (i < 0 || !other) return;
+    const changed = new Set();
+    full.forEach((x, k) => { if (x.order !== k * 10) { x.order = k * 10; changed.add(x); } });
+    [t.order, other.order] = [other.order, t.order];
+    changed.add(t); changed.add(other);
+    for (const x of changed) save(x);
+    render(true);
+    document.getElementById("mv" + (dir < 0 ? "u" : "d") + "-" + t.id)?.focus();
+  }
+
+  function renderPiles() {
+    const all = [...tasks.values()].filter(t => t.pile && (filter === "all" || t.area === filter));
+    $("piles").replaceChildren(...Object.entries(PILES).map(([key, p]) => {
+      const list = pileSorted(key).filter(t => filter === "all" || t.area === filter);
+      const openCount = list.filter(t => t.status !== "complete").length;
+      return h("section", { class: "pile", "data-pile": key },
+        h("div", { class: "pile-hd" },
+          h("div", { class: "row" }, h("h2", null, h("i"), p.name), h("span", { class: "count", text: openCount + " open" })),
+          h("p", { text: p.hint })),
+        list.length ? list.map(card) : h("div", { class: "empty", text: tasks.size ? "Nothing here yet" : "Add a task above, then press Get it Done" }));
+    }));
+  }
+  function okItem(t, approved) {
+    const copyBtn = h("button", { class: "btn", type: "button", text: "Copy" });
+    copyBtn.addEventListener("click", () => copy(t.result, copyBtn));
+    const btns = approved
+      ? [...links(t), copyBtn, h("button", { class: "btn primary", type: "button", onclick: () => markComplete(t), text: "Mark sent" })]
+      : [h("button", { class: "btn primary", type: "button", onclick: e => approve(t, e.currentTarget), text: approveLabel(t) }), copyBtn];
+    btns.push(h("button", { class: "btn", type: "button", onclick: () => showTask(t.id), text: "Open" }));
+    return h("div", { class: "ok-item" },
+      h("div", { class: "lbl" }, h("span", { class: "num", text: "#" + pad(t.num) }), h("span", { text: t.okLabel || t.title })),
+      kinds(t),
+      h("p", { text: t.result }),
+      h("div", { class: "btns" }, btns));
+  }
+  function renderOk() {
+    const byNum = (a, b) => a.num - b.num;
+    const list = [...tasks.values()].filter(t => t.status === "needs_ok" && !busy.has(t.id)).sort(byNum);
+    const sent = [...tasks.values()].filter(t => t.status === "approved").sort(byNum);
+    const badge = $("okCount"); badge.textContent = String(list.length); badge.classList.toggle("zero", !list.length);
+    const out = [];
+    out.push(list.length ? h("div", null, list.map(t => okItem(t, false)))
+      : h("div", { class: "ok-empty", text: "Nothing needs your OK right now. Drafts that would go to someone else land here first." }));
+    if (sent.length) out.push(h("div", { class: "ok-group", text: "Approved, ready for you to send" }), h("div", null, sent.map(t => okItem(t, true))));
+    $("okList").replaceChildren(...out);
+  }
+  /* ---------- Events ---------- */
+  const input = $("chatInput");
+  function grow() { input.style.height = "auto"; input.style.height = Math.min(220, input.scrollHeight) + "px"; }
+  input.addEventListener("input", grow);
+  input.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("composer").requestSubmit(); } });
+  $("composer").addEventListener("submit", e => {
+    e.preventDefault();
+    const v = input.value; if (!v.trim()) { input.focus(); return; }
+    input.value = ""; grow(); addFromText(v); input.focus();
+  });
+  // Get it Done also adds whatever is still typed in the box first.
+  $("go").addEventListener("click", () => {
+    if (!running && input.value.trim()) { addFromText(input.value); input.value = ""; grow(); }
+    getItDone();
+  });
+
+  /* ---------- Start ---------- */
+  renderGreeting(""); render();
+  // Keep Up next current as the clock moves past a task's time.
+  // Every minute: refresh Up next; when the day changes, refresh the date, greeting and every list.
+  setInterval(() => { if (ymd(new Date()) !== dayKey) { renderGreeting(); render(); } else { renderGreeting(); renderTop(); renderNext(); } }, 60000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) { renderGreeting(); render(); } });
+  (async () => {
+    const C = window.claude;
+    if (!C || !C.use) { notice("Open this page on claude.ai to save tasks and let the helpers work."); return; }
+    const [dbNs, userNs, s, m] = await Promise.all([C.use("db"), C.use("user"), C.use("sample"), C.use("mcp")]);
+    sample = s; mcp = m;
+    if (userNs) { try { const n = await userNs.name(); renderGreeting((n || "").trim().split(/\s+/)[0]); } catch (e) {} }
+    const notes = [];
+    if (!sample) notes.push("The helpers can't use Claude in this view, so Get it Done is off.");
+    let id = null;
+    if (dbNs && userNs) { try { id = await userNs.id(); } catch (e) { id = null; } }
+    if (dbNs && id) {
+      col = dbNs.collection("data/users/" + id);
+      const slow = setTimeout(() => notice("Can't reach your saved tasks yet. They'll appear when the connection is back."), 10000);
+      col.onSnapshot(snap => {
+        if (!snap.metadata.fromCache) { clearTimeout(slow); notice(notes.join(" ")); }
+        for (const ch of snap.docChanges()) {
+          if (busy.has(ch.doc.id)) continue;
+          if (ch.type === "removed") tasks.delete(ch.doc.id);
+          else { const d = { ...ch.doc.data() }; if (!d.due && d.created) { d.due = ymd(new Date(d.created)); d.dueAuto = true; } tasks.set(ch.doc.id, d); }
+        }
+        render();
+      }, () => { clearTimeout(slow); notice("Your saved tasks can't be loaded right now. New tasks won't be kept."); col = null; });
+    } else {
+      notes.push("Tasks aren't being saved in this view.");
+    }
+    notice(notes.join(" "));
+    // Tasks added before storage connected get saved now.
+    if (col) for (const t of tasks.values()) save(t);
+  })();
+})();
+</script>
