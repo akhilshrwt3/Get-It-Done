@@ -67,6 +67,16 @@ If you skip `mcp`, everything except Gmail drafts and Calendar reminders still w
 
 Opened outside claude.ai, for example straight from GitHub, the page loads and shows a notice. It can't save tasks or run the helpers there.
 
+## Tests
+
+The date, Up next and history logic lives in one block of `index.html` (`<script id="gid-logic">`), separate from the page code, so it can be tested without a browser. With Node 20 or newer:
+
+```
+npm test
+```
+
+The tests read that block straight out of `index.html`, so the app is still a single file you can publish as it is.
+
 ## Safety
 
 - The helpers can only write. The prompts tell them never to claim they sent, booked, paid or called anything, and the Checker fails any answer that does.
